@@ -2,7 +2,7 @@
 
 ## Introduction
 
-The LiveStack can run locally with Podman, but the same demo can also run in your own OCI tenancy. In this lab, you use a **Deploy to Oracle Cloud** link to open an approved Terraform package directly in **OCI Resource Manager**, review the proposed infrastructure, deploy the application, and open it from the Resource Manager outputs.
+The LiveStack can run locally with Podman, but the same demo can also run in your own OCI tenancy. In this lab, you upload the approved Terraform package to **OCI Resource Manager**, review the proposed infrastructure, deploy the application, and open it from the Resource Manager outputs.
 
 The Terraform package creates the network, an Oracle Linux application VM, a private Object Storage delivery bucket, and an Oracle Autonomous AI Database 26ai instance. During first boot, the VM loads the application schema and synthetic demo data, configures native Select AI with OCI Generative AI, and starts the application on port **8505**.
 
@@ -14,7 +14,8 @@ Estimated time: **45-90 minutes**, including database provisioning and applicati
 
 In this lab, you will:
 
-- Open a Resource Manager stack from the approved Deploy to Oracle Cloud link.
+- Download the Resource Manager package from an OCI Object Storage PAR URL.
+- Create an OCI Resource Manager stack from the Terraform ZIP.
 - Configure the stack variables for your tenancy, network access, VM, database, and AI region.
 - Review the configured variables before running Apply.
 - Run Apply and wait for the application health check to pass.
@@ -47,36 +48,57 @@ The diagram below shows the main deployment and runtime paths.
 
 ![Powtoon-style generic LiveStack architecture showing OCI Resource Manager, networking, an application VM, Autonomous AI Database, Object Storage, and OCI Generative AI](images/livestack-architecture.png)
 
-## Task 1: Open the Resource Manager deployment link
+## Task 1: Download the Resource Manager package
 
-> **Release note:** The Deploy to Oracle Cloud link below references the approved Resource Manager package for this lab. Each lab variant must use its own release-owner-approved package URL. Keep the package URL stable and accessible to OCI Resource Manager.
+> **Release note:** The link below is an OCI Object Storage pre-authenticated request (PAR) for the Resource Manager ZIP used by this lab. In each lab variant, replace the URL with the release-owner-provided package for that variant. The PAR should grant only the access required to download this ZIP.
 
-1. Sign in to the OCI Console, if prompted.
+1. Download the package from the release-owner-provided PAR URL:
 
-2. Select the following link to open the stack-creation page with the Media Terraform package already selected:
+    [Download the Resource Manager package](https://c4u02.objectstorage.us-ashburn-1.oci.customer-oci.com/p/9DEArLjsgbKXuJgQtSG95E8hMXRFtxgHR8jiHbqz4HgyVYXVnSo0SC_s-zq5CJA3/n/c4u02/b/hosted-files/o/media-livestack-terraform.zip)
 
-    [Deploy the Media LiveStack with OCI Resource Manager](https://cloud.oracle.com/resourcemanager/stacks/create?zipUrl=https://objectstorage.us-ashburn-1.oraclecloud.com/p/hwWT9dWzinxObIDAvT4qS39oFWvupUxaiVMRqdAez9208TkMnWZEkKX58taDzEMg/n/c4u04/b/Deploy-OCI-Resource-Manager/o/media-livestack-terraform.zip)
-
-3. On the **Create stack** page, confirm that the **Package URL** identifies `media-livestack-terraform.zip`. No local download or ZIP upload is required.
-
-4. Review and accept the Oracle Terms of Use.
-
-5. Select the compartment that will contain the stack resources. The OCI region is selected later in the **Configure variables** step.
-
-6. In the **Name** field, enter a recognizable stack name.
-
-7. Select **Next** to open the **Configure variables** step.
+2. Keep the original filename of the downloaded ZIP file.
 
 Expected result:
 
-- The **Create stack** page shows the package URL and does not require you to download or upload a ZIP file.
+- You have the approved Resource Manager ZIP file available on the computer you will use to create the stack.
+- The archive contains root-level Terraform files, `schema.yaml`, bootstrap scripts, verification assets, and the application payload.
+
+## Task 2: Create the Resource Manager stack
+
+![OCI Resource Manager Stacks page with the Create stack action highlighted](images/resource-manager-stacks.png)
+
+1. Sign in to the OCI Console.
+
+2. Open the navigation menu, select **Developer Services**, and then select **Resource Manager** and **Stacks**.
+
+3. Select **Create stack**.
+
+4. For the Terraform configuration source, select **My configuration**.
+
+![OCI Resource Manager Create Stack form with My configuration and .Zip file highlighted in red](images/resource-manager-create-stack.png)
+
+5. Under **Terraform configuration source**, select **.Zip file**.
+
+6. Add the downloaded ZIP file to the upload area. Either drag and drop the ZIP file onto the dashed area, or select **Browse** and choose the ZIP file on your computer. Wait until the filename appears below the upload area.
+
+![OCI Resource Manager Create Stack form with the uploaded ZIP filename and stack information](images/resource-manager-uploaded-stack.png)
+
+7. Select the compartment that will contain the stack resources. The OCI region is selected later in the **Configure variables** step.
+
+8. In the **Name** field, enter a recognizable stack name.
+
+9. Select **Next** to open the **Configure variables** step.
+
+Expected result:
+
+- The uploaded filename appears below the upload area, and the **Stack information** panel shows the package-provided stack description.
 - Resource Manager accepts the Terraform configuration and opens the variable form generated from `schema.yaml`.
 
-## Task 2: Configure the stack variables
+## Task 3: Configure the stack variables
 
-1. Configure the variables in the stack creation form.
+![OCI Resource Manager stack variables grouped into location and access, compute sizing, and database and AI](images/resource-manager-variables.png)
 
-    ![OCI Resource Manager stack variables grouped into location and access, compute sizing, and database and AI](images/resource-manager-variables.png)
+Configure the variables in the stack creation form.
 
 Use the following guidance. Keep the shipped defaults unless your tenancy requires a different value.
 
@@ -102,15 +124,17 @@ Use the following guidance. Keep the shipped defaults unless your tenancy requir
 
 The hidden `tenancy_ocid` and `current_user_ocid` values are populated by Resource Manager. Do not try to replace them with another tenancy or user.
 
-2. Select **Next** to open the **Review** page.
+After configuring the variables, finish creating the stack:
 
-    ![OCI Resource Manager Review page with the Run apply checkbox highlighted in red](images/resource-manager-review.png)
+1. Select **Next** to open the **Review** page.
 
-3. Review the stack information and variable values.
+![OCI Resource Manager Review page with the Run apply checkbox highlighted in red](images/resource-manager-review.png)
 
-4. Confirm that **Run apply** is selected. This tells Resource Manager to begin provisioning immediately after the stack is created.
+2. Review the stack information and variable values.
 
-5. Select **Create**.
+3. Confirm that **Run apply** is selected. This tells Resource Manager to begin provisioning immediately after the stack is created.
+
+4. Select **Create**.
 
 Expected result:
 
@@ -119,17 +143,17 @@ Expected result:
 - Resource Manager creates the stack and starts the Apply job.
 - The new stack opens with a job that provisions the LiveStack resources.
 
-## Task 3: Monitor the Apply job
+## Task 4: Monitor the Apply job
+
+![OCI Resource Manager Apply job with the state shown as In Progress](images/resource-manager-apply.png)
 
 1. Open the Apply job created when you selected **Create**.
-
-    ![OCI Resource Manager Apply job with the state shown as In Progress](images/resource-manager-apply.png)
 
 2. Confirm that the job state is **In Progress**. Keep this page open while Resource Manager provisions the stack. The Apply job usually takes **20-45 minutes**. Initial VM setup can take up to **90 minutes**.
 
 3. Select the **Logs** tab to monitor the build.
 
-    ![OCI Resource Manager Apply job Logs tab showing Terraform provider and build activity](images/resource-manager-apply-logs.png)
+![OCI Resource Manager Apply job Logs tab showing Terraform provider and build activity](images/resource-manager-apply-logs.png)
 
 4. Review the log entries as they appear. They show Terraform provider initialization and each resource operation that Apply performs.
 
@@ -143,11 +167,11 @@ Expected result:
 - The Apply job eventually succeeds.
 - The stack outputs include the application URL, health URL, database details, and bootstrap troubleshooting commands.
 
-## Task 4: Open the outputs and verify the application
+## Task 5: Open the outputs and verify the application
+
+![OCI Resource Manager stack outputs with the application_url output highlighted in red](images/resource-manager-outputs.png)
 
 1. On the stack details page, open the **Outputs** section.
-
-    ![OCI Resource Manager stack outputs with the application_url output highlighted in red](images/resource-manager-outputs.png)
 
 2. Open the `application_health_url` output. Confirm that it returns HTTP 200 and reports database connectivity and native-AI readiness.
 
@@ -163,7 +187,7 @@ Expected result:
 - The application opens on port `8505` and shows the deployed workflow.
 - The application’s validation uses the deployed database and native OCI Generative AI configuration.
 
-## Task 5: Investigate a failed bootstrap when needed
+## Task 6: Investigate a failed bootstrap when needed
 
 If Apply fails after the VM has been created, use the Resource Manager outputs before deciding whether to repair or destroy the stack.
 
@@ -179,23 +203,23 @@ Expected result:
 
 - You identify the failure using the Resource Manager output and VM bootstrap log rather than host reachability alone.
 
-## Task 6: Destroy the stack
+## Task 7: Destroy the stack
+
+![OCI Resource Manager stack details with the Destroy action highlighted in red](images/resource-manager-destroy.png)
 
 1. After you finish the demonstration, return to the stack details page and select **Destroy**.
-
-    ![OCI Resource Manager stack details with the Destroy action highlighted in red](images/resource-manager-destroy.png)
 
 2. Confirm the Destroy operation and wait for the job to become **Succeeded**.
 
 3. Review the job log and resource list. Confirm that the API key, application VM, Autonomous Database, VCN, callback objects, and private delivery bucket are removed.
 
-4. If you need the demo again later, use the deployment link again and run Plan before Apply.
+4. If you need the demo again later, create a new stack from the approved ZIP and run Plan before Apply.
 
 Expected result:
 
 - Destroy completes successfully and the stack no longer retains the billable demo resources.
 
-## Acknowledgements
+## Credits & Build Notes
 
 - **Author** - Oracle LiveLabs Team.
 - **Last Updated By/Date** - Oracle LiveLabs Team, September 2026.
