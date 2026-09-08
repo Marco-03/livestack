@@ -431,9 +431,8 @@ export default function Dashboard() {
           <div>
             <p className="text-xs font-semibold text-[var(--color-text-dim)] uppercase tracking-wider mb-2">What's Happening</p>
             <p className="text-[var(--color-text)] leading-relaxed">
-              This dashboard issues a single <span className="tone-teal font-mono">SELECT</span> against five different Oracle workload engines simultaneously -
-              relational aggregations, JSON collections, spatial data, property graph edges, and AI agent audit logs - all from one converged database.
-              No ETL pipelines. No microservices. No sync lag. Just Oracle.
+              This dashboard uses one <span className="tone-teal font-mono">SELECT</span> to read relational totals, JSON collections, spatial data, graph links, and agent audit records from one Oracle database.
+              The data stays together, so there are no ETL pipelines, microservices, or sync jobs to manage.
             </p>
           </div>
           <div className="flex flex-wrap gap-1.5">
@@ -445,32 +444,104 @@ export default function Dashboard() {
             <FeatureBadge label="Vector Search" color="cyan" />
             <FeatureBadge label="In-Memory Column Store" color="yellow" />
           </div>
-          <SqlBlock code={`-- One query. Five workloads. Zero ETL.
+          <SqlBlock code={`-- Independent totals from each finance domain
 SELECT
-  COUNT(o.order_id)                     AS orders_total,
-  SUM(o.order_total)                    AS revenue_total,
-  COUNT(sp.post_id) FILTER (
-    WHERE sp.momentum_flag = 'viral')   AS critical_signals,
-  COUNT(aa.action_id)                   AS agent_actions,
-  COUNT(s.shipment_id) FILTER (
-    WHERE s.ship_status = 'in_transit') AS shipments_in_transit
-FROM   orders o, social_posts sp,
-       agent_actions aa, shipments s;`} />
-          <SqlBlock code={`-- Financial product search: Oracle UPPER() case-insensitive LIKE
-SELECT p.product_name, b.brand_name,
-       COUNT(DISTINCT ppm.post_id) AS mention_count,
-       ROUND(AVG(sp.virality_score), 2) AS criticality_score
-FROM products p
-JOIN brands b ON p.brand_id = b.brand_id
-JOIN post_product_mentions ppm ON p.product_id = ppm.product_id
-JOIN social_posts sp ON ppm.post_id = sp.post_id
-WHERE sp.posted_at >= SYSTIMESTAMP - INTERVAL '7' DAY
-  AND (UPPER(p.product_name) LIKE UPPER(:search)
-    OR UPPER(b.brand_name)   LIKE UPPER(:search))
-GROUP BY p.product_id, p.product_name, b.brand_name
-ORDER BY avg_criticality DESC;`} />
+    (SELECT COUNT(*)
+       FROM orders) AS orders_total,
+
+    (SELECT SUM(order_total)
+       FROM orders) AS revenue_total,
+
+    (SELECT COUNT(*)
+       FROM social_posts
+      WHERE momentum_flag = 'viral') AS critical_signals,
+
+    (SELECT COUNT(*)
+       FROM agent_actions) AS agent_actions,
+
+    (SELECT COUNT(*)
+       FROM shipments
+      WHERE ship_status = 'in_transit') AS shipments_in_transit;`} />
+          <SqlBlock code={`-- Converged product investigation: vector similarity + signals + orders
+-- Section 1: VECTOR data — compare stored product embeddings with a
+-- runtime embedding generated from the search phrase.
+WITH semantic_products AS (
+    SELECT p.product_id,
+           p.product_name,
+           p.category,
+           p.unit_price,
+           b.brand_name,
+           ROUND(
+             1 - VECTOR_DISTANCE(
+               pe.embedding,
+               VECTOR_EMBEDDING(
+                 ALL_MINILM_L12_V2
+                 USING 'digital wallet fraud' AS DATA
+               ),
+               COSINE
+             ),
+             4
+           ) AS semantic_similarity
+    FROM product_embeddings pe
+    JOIN products p ON p.product_id = pe.product_id
+    JOIN brands b ON b.brand_id = p.brand_id
+    ORDER BY VECTOR_DISTANCE(
+      pe.embedding,
+      VECTOR_EMBEDDING(
+        ALL_MINILM_L12_V2
+        USING 'digital wallet fraud' AS DATA
+      ),
+      COSINE
+    )
+    FETCH APPROXIMATE FIRST 10 ROWS ONLY
+), recent_activity AS (
+    -- Section 2: RELATIONAL + TEMPORAL data — aggregate recent social
+    -- signal activity linked to products through the mention table.
+    SELECT ppm.product_id,
+           COUNT(DISTINCT ppm.post_id) AS mention_count,
+           ROUND(AVG(sp.virality_score), 2) AS avg_virality
+    FROM post_product_mentions ppm
+    JOIN social_posts sp ON sp.post_id = ppm.post_id
+    WHERE sp.posted_at >= (
+      SELECT MAX(posted_at) FROM social_posts
+    ) - INTERVAL '7' DAY
+    GROUP BY ppm.product_id
+), order_exposure AS (
+    -- Section 3: RELATIONAL TRANSACTION data — summarize order-line
+    -- volume and monetary value for each product.
+    SELECT oi.product_id,
+           COUNT(DISTINCT oi.order_id) AS order_count,
+           ROUND(SUM(oi.line_total), 2) AS order_value
+    FROM order_items oi
+    JOIN orders o ON o.order_id = oi.order_id
+    GROUP BY oi.product_id
+)
+-- Section 4: CONVERGED relational result — combine vector, signal, and
+-- transaction data into one investigation score.
+SELECT sp.product_name,
+       sp.category,
+       sp.brand_name,
+       ROUND(sp.unit_price * 1000, 2) AS exposure_proxy,
+       sp.semantic_similarity,
+       NVL(ra.mention_count, 0) AS recent_mentions,
+       NVL(ra.avg_virality, 0) AS avg_virality,
+       NVL(oe.order_count, 0) AS order_count,
+       NVL(oe.order_value, 0) AS order_value,
+       ROUND(
+         (
+             (sp.semantic_similarity * 0.50)
+           + (LEAST(NVL(ra.avg_virality, 0) / 100, 1) * 0.25)
+           + (LEAST(NVL(oe.order_value, 0) / 250000, 1) * 0.25)
+         ) * 100,
+         1
+       ) AS investigation_score
+FROM semantic_products sp
+LEFT JOIN recent_activity ra ON ra.product_id = sp.product_id
+LEFT JOIN order_exposure oe ON oe.product_id = sp.product_id
+ORDER BY investigation_score DESC
+FETCH FIRST 10 ROWS ONLY;`} />
           <div>
-            <p className="text-[10px] font-semibold text-[var(--color-text-dim)] uppercase tracking-wider mb-2">Converged Architecture</p>
+            <p className="text-[10px] font-semibold text-[var(--color-text-dim)] uppercase tracking-wider mb-2">How the data fits together</p>
             <div className="grid grid-cols-3 gap-1.5">
               <DiagramBox label="JSON Docs" sub="signal bulletins · event_stream" color="#AA643B" />
               <DiagramBox label="Oracle AI Database 26ai" sub="One Engine" color="#c74634" />
@@ -482,7 +553,7 @@ ORDER BY avg_criticality DESC;`} />
               <DiagramBox label="In-Memory" sub="Column Store" color="#AA643B" />
             </div>
             <div className="rounded-lg p-2 text-center mt-2" style={{ background: 'rgba(199,70,52,0.08)', border: '1px dashed rgba(199,70,52,0.3)' }}>
-              <p className="text-[9px] text-[var(--color-text-dim)]">All workloads. One transaction. One connection pool.</p>
+              <p className="text-[9px] text-[var(--color-text-dim)]">All workloads use one transaction and connection pool.</p>
               <p className="text-[9px] font-mono text-[var(--color-text)] mt-0.5">No Kafka · No Spark · No Sync Jobs</p>
             </div>
           </div>
@@ -542,7 +613,7 @@ ORDER BY avg_criticality DESC;`} />
         <div>
           <h2 className="text-2xl font-bold">Risk & Operations Dashboard</h2>
           <p className="text-sm text-[var(--color-text-dim)] mt-1">
-            Fraud-led visibility into financial operations, compliance risk, customer exposure, and AI-assisted decision intelligence.
+          A live view of financial operations, compliance risk, client exposure, and AI-assisted decisions.
           </p>
         </div>
         <button onClick={refetchSummary} className="btn-ghost flex items-center gap-1.5">
@@ -779,7 +850,7 @@ ORDER BY avg_criticality DESC;`} />
       {/* Converged DB Capabilities Bar */}
       <div className="glass-card p-4">
         <div className="flex items-center justify-between flex-wrap gap-3">
-          <span className="text-[11px] text-[var(--color-text-dim)] uppercase tracking-wider">Converged capabilities in use</span>
+          <span className="text-[11px] text-[var(--color-text-dim)] uppercase tracking-wider">Database capabilities in use</span>
           <div className="flex gap-2 flex-wrap">
             {[
               { label: 'Relational', desc: 'Transactions and Service Capacity', color: '#437C94' },

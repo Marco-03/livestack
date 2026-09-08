@@ -1,20 +1,17 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# pip installs podman-compose in /usr/local/bin on Oracle Linux, which is not
-# always included in the PATH used by cloud-init.
-export PATH="/usr/local/bin:${PATH}"
-
 ROOT="/opt/finance-livestack"
 SOURCE_DIR="${ROOT}/application"
 RUNTIME_ENV="${ROOT}/runtime-bootstrap.env"
 WALLET_ARCHIVE="${ROOT}/wallet.zip"
 WALLET_DIR="${ROOT}/wallet"
-COMPOSE_FILE="${ROOT}/compose.resource-manager.yml"
 APP_ENV_FILE="${ROOT}/finance.env"
 STATUS_FILE="${ROOT}/deployment-status.txt"
 API_PRIVATE_KEY_FILE="${ROOT}/selectai-api-key.pem"
 API_PUBLIC_KEY_FILE="${ROOT}/selectai-api-key-public.pem"
+SQLCL_ARCHIVE_URL="https://download.oracle.com/otn_software/java/sqldeveloper/sqlcl-26.2.2.233.1901.zip"
+SQLCL_ARCHIVE_SHA256="17f89fddf69722f37d7bde0718e66490647b25b295bf52fba92ba0ad042fa256"
 BOOTSTRAP_PHASE="initializing"
 BOOTSTRAP_TERMINAL_STATE=""
 INSTANCE_OCID=""
@@ -87,6 +84,7 @@ cleanup_sensitive_runtime() {
     "${WALLET_ARCHIVE}" \
     "${WALLET_ARCHIVE}.b64" \
     "${RUNTIME_ENV}" \
+    "${ROOT}/sqlcl.zip" \
     "${API_PRIVATE_KEY_FILE}" \
     "${API_PUBLIC_KEY_FILE}" 2>/dev/null || true
   unset \
@@ -175,9 +173,10 @@ retry_dnf_install() {
   local max_attempts=6
 
   for ((attempt = 1; attempt <= max_attempts; attempt++)); do
-    # Ksplice is not needed by this disposable demo VM. Its regional mirror can
-    # lag VM network readiness and must not block the package transaction.
-    if dnf -y --disablerepo=ol9_ksplice install "$@"; then
+    # Neither Ksplice nor OCI Included is required by this disposable demo VM.
+    # Their regional mirrors can lag network readiness and must not block the
+    # package transaction for the standard OL9 repositories.
+    if dnf -y --disablerepo=ol9_ksplice --disablerepo=ol9_oci_included install "$@"; then
       return 0
     fi
     if (( attempt < max_attempts )); then
@@ -340,14 +339,31 @@ wait_for_api_key_activation() {
   fail "Timed out waiting for Terraform to register and activate the Select AI API key."
 }
 
-run_compose() {
-  if podman compose version >/dev/null 2>&1; then
-    podman compose -f "${COMPOSE_FILE}" "$@"
-  elif command -v podman-compose >/dev/null 2>&1; then
-    podman-compose -f "${COMPOSE_FILE}" "$@"
-  else
-    python3 -m podman_compose -f "${COMPOSE_FILE}" "$@"
+run_podman_application() {
+  command -v podman >/dev/null 2>&1 || fail "Podman is required to run the Finance application."
+
+  if ! podman network exists finance-livestack; then
+    podman network create finance-livestack >/dev/null
   fi
+
+  podman rm --force finance-application >/dev/null 2>&1 || true
+  podman build \
+    --tag finance-livestack:resource-manager \
+    --file "${SOURCE_DIR}/Containerfile" \
+    "${SOURCE_DIR}"
+  podman run --detach \
+    --name finance-application \
+    --env-file "${APP_ENV_FILE}" \
+    --publish "${APPLICATION_PORT}:3001" \
+    --volume "${WALLET_DIR}:/opt/oracle/wallet:ro,Z" \
+    --network finance-livestack \
+    --restart unless-stopped \
+    --health-cmd 'node -e "require(\"http\").get(\"http://127.0.0.1:3001/api/health\", (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on(\"error\", () => process.exit(1))"' \
+    --health-interval 15s \
+    --health-timeout 5s \
+    --health-retries 40 \
+    --health-start-period 180s \
+    finance-livestack:resource-manager >/dev/null
 }
 
 valid_adb_admin_password() {
@@ -434,7 +450,7 @@ wait_for_api_key_activation
 
 set_bootstrap_phase "runtime_prerequisites"
 log "Installing Resource Manager runtime prerequisites."
-retry_dnf_install "Resource Manager runtime" container-tools unzip python3 python3-pip
+retry_dnf_install "Resource Manager runtime" container-tools unzip
 
 # Oracle Linux 9 does not publish the generic `sqlcl` or `jdk-21-headless`
 # package names. Java 17 is the known-good OL9 SQLcl runtime used by Utilities;
@@ -448,20 +464,15 @@ if ! command -v sql >/dev/null 2>&1; then
   sqlcl_install_root="/opt/oracle"
   install -d -m 0755 "${sqlcl_install_root}"
   curl -fsSL --retry 8 --retry-delay 5 \
-    'https://download.oracle.com/otn_software/java/sqldeveloper/sqlcl-latest.zip' \
+    "${SQLCL_ARCHIVE_URL}" \
     -o "${sqlcl_archive}"
+  printf '%s  %s\n' "${SQLCL_ARCHIVE_SHA256}" "${sqlcl_archive}" | sha256sum --check --status ||
+    fail "SQLcl download digest did not match the pinned release."
   unzip -q -o "${sqlcl_archive}" -d "${sqlcl_install_root}"
   sqlcl_binary="$(find "${sqlcl_install_root}" -type f -path '*/bin/sql' -print -quit)"
   [[ -n "${sqlcl_binary}" ]] || fail "Oracle SQLcl archive did not contain the sql command."
   ln -sf "${sqlcl_binary}" /usr/local/bin/sql
   rm -f "${sqlcl_archive}"
-fi
-
-if ! podman compose version >/dev/null 2>&1 && ! command -v podman-compose >/dev/null 2>&1; then
-  # Oracle Linux 9 does not publish podman-compose in its standard repository.
-  # Install the supported Python package directly instead of logging an expected
-  # DNF failure on every new VM.
-  python3 -m pip install --upgrade 'podman-compose>=1.2,<2'
 fi
 
 command -v sql >/dev/null 2>&1 || fail "SQLcl installation did not provide the sql command."
@@ -513,36 +524,6 @@ DEMO_USAGE_COUNTER_ENABLED=false
 EOF
 chmod 0600 "${APP_ENV_FILE}"
 
-cat > "${COMPOSE_FILE}" <<EOF
-services:
-  app:
-    build:
-      context: ${SOURCE_DIR}
-      dockerfile: Containerfile
-    image: finance-livestack:resource-manager
-    container_name: finance-application
-    env_file:
-      - ${APP_ENV_FILE}
-    ports:
-      - "${APPLICATION_PORT}:3001"
-    volumes:
-      - ${WALLET_DIR}:/opt/oracle/wallet:ro,Z
-    healthcheck:
-      test: ["CMD-SHELL", "node -e \"require('http').get('http://127.0.0.1:3001/api/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))\""]
-      interval: 15s
-      timeout: 5s
-      retries: 40
-      start_period: 180s
-    networks:
-      - finance
-    restart: unless-stopped
-
-networks:
-  finance:
-    name: finance-livestack
-EOF
-chmod 0600 "${COMPOSE_FILE}"
-
 set_bootstrap_phase "database_bootstrap"
 log "Creating APP_USER, loading the Finance schema and data, and validating ADB."
 export ADB_CONNECT_STRING="${ADB_SERVICE_NAME}"
@@ -571,7 +552,7 @@ fi
 
 set_bootstrap_phase "application_build"
 log "Building and starting the Finance application."
-run_compose up -d --build app
+run_podman_application
 set_bootstrap_phase "application_health_check"
 for attempt in $(seq 1 180); do
   if curl -fsS "http://127.0.0.1:${APPLICATION_PORT}/api/health" >/dev/null; then

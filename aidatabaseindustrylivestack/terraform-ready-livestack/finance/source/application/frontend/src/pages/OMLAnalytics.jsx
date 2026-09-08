@@ -190,41 +190,67 @@ function DemandOraclePanel() {
         <FeatureBadge label="12 Training Features" color="green" />
         <FeatureBadge label="In-DB Model Persistence" color="purple" />
       </div>
-      <SqlBlock code={`-- Step 1: Train the model (one-time)
+      <SqlBlock code={`-- Step 1: Train the model once, if it does not already exist.
+-- This standalone example uses a separate model name so it does not
+-- collide with the application's persisted DEMAND_SURGE_MODEL.
+DECLARE
+  v_model_count NUMBER;
 BEGIN
-  DBMS_DATA_MINING.CREATE_MODEL(
-    model_name      => 'DEMAND_SURGE_MODEL',
-    mining_function => DBMS_DATA_MINING.CLASSIFICATION,
-    data_table_name => 'OML_DEMAND_TRAINING_V',
-    case_id_column_name => 'PRODUCT_ID',
-    target_column_name  => 'SURGE_FLAG',
-    settings_table_name => 'DEMAND_SURGE_SETTINGS'
-    -- ALGO_RANDOM_FOREST, 50 trees, PREP_AUTO_ON
-  );
+  SELECT COUNT(*) INTO v_model_count
+  FROM user_mining_models
+  WHERE model_name = 'DEMAND_SURGE_DEMO_MODEL';
+
+  IF v_model_count = 0 THEN
+    DBMS_DATA_MINING.CREATE_MODEL(
+      model_name          => 'DEMAND_SURGE_DEMO_MODEL',
+      mining_function     => DBMS_DATA_MINING.CLASSIFICATION,
+      data_table_name     => 'OML_DEMAND_TRAINING_V',
+      case_id_column_name => 'PRODUCT_ID',
+      target_column_name  => 'SURGE_LABEL',
+      settings_table_name => 'OML_DEMAND_SETTINGS'
+    );
+  END IF;
 END;
+/
 
--- Step 2: Score financial products in real-time SQL
-SELECT p.product_name, p.category,
-
-  -- Random Forest prediction: SURGE or NORMAL
-  PREDICTION(DEMAND_SURGE_MODEL USING
-    p.category, p.unit_price,
-    eng.total_posts, eng.avg_sentiment,
-    eng.total_likes, eng.total_shares,
-    eng.total_views, eng.avg_virality,
-    eng.viral_posts, eng.rising_posts,
-    sales.units_sold, sales.revenue
-  ) AS predicted_surge,
-
-  -- Probability of SURGE class (0.0 – 1.0)
-  ROUND(PREDICTION_PROBABILITY(
-    DEMAND_SURGE_MODEL, 'SURGE' USING ...
-  ) * 100, 1) AS surge_probability
-
-FROM products p
-JOIN product_engagement eng  ...
-JOIN product_sales sales     ...
-ORDER BY surge_probability DESC;`} />
+-- Step 2: Score the real training features against live products.
+-- OML_DEMAND_TRAINING_V supplies all 12 attributes expected by the model.
+SELECT p.product_id,
+       p.product_name,
+       p.category,
+       p.unit_price,
+       PREDICTION(DEMAND_SURGE_DEMO_MODEL USING
+         f.category      AS category,
+         f.unit_price    AS unit_price,
+         f.total_posts   AS total_posts,
+         f.avg_sentiment AS avg_sentiment,
+         f.total_likes   AS total_likes,
+         f.total_shares  AS total_shares,
+         f.total_views   AS total_views,
+         f.avg_virality  AS avg_virality,
+         f.viral_posts   AS viral_posts,
+         f.rising_posts   AS rising_posts,
+         f.units_sold    AS units_sold,
+         f.revenue       AS revenue
+       ) AS predicted_surge,
+       ROUND(PREDICTION_PROBABILITY(DEMAND_SURGE_DEMO_MODEL, 'SURGE' USING
+         f.category      AS category,
+         f.unit_price    AS unit_price,
+         f.total_posts   AS total_posts,
+         f.avg_sentiment AS avg_sentiment,
+         f.total_likes   AS total_likes,
+         f.total_shares  AS total_shares,
+         f.total_views   AS total_views,
+         f.avg_virality  AS avg_virality,
+         f.viral_posts   AS viral_posts,
+         f.rising_posts  AS rising_posts,
+         f.units_sold    AS units_sold,
+         f.revenue       AS revenue
+       ) * 100, 1) AS surge_probability
+FROM oml_demand_training_v f
+JOIN products p ON p.product_id = f.product_id
+ORDER BY surge_probability DESC
+FETCH FIRST 10 ROWS ONLY;`} />
       <div className="oml-model-flow">
         <div className="text-[9px] text-center text-[var(--color-text)] font-bold mb-1">DBMS_DATA_MINING Pipeline</div>
         <DiagramBox label="OML_DEMAND_TRAINING_V (187 financial products)" sub="12 features: signal intensity + orders + availability" color="#AA643B" />
@@ -609,17 +635,17 @@ export default function OMLAnalytics() {
       {/* ── Header ──────────────────────────────── */}
       <div>
         <h2 className="text-2xl font-bold flex items-center gap-2">
-          <JetGlyph iconClass="oj-fwk-icon-view" className="oml-header-glyph tone-plum" /> Predictive Risk, Capacity & Revenue Intelligence
+          <JetGlyph iconClass="oj-fwk-icon-view" className="oml-header-glyph tone-plum" /> Risk, Capacity & Revenue Forecasts
         </h2>
         <p className="text-sm text-[var(--color-text-dim)] mt-1">
-          Forecast fraud-linked operational pressure, client risk, revenue exposure, product cohorts, and service capacity from governed Seer Bank data.
+          Forecast fraud-linked pressure, client risk, revenue exposure, product groups, and service capacity from Seer Bank data.
         </p>
       </div>
 
       <SceneStoryPanel scene="oml" />
 
       {/* ── Oracle Panel - switches content based on active tab ── */}
-      <RegisterOraclePanel title="Predictive Risk & Revenue Analytics">
+      <RegisterOraclePanel title="Risk & Revenue Analytics">
         {activeTab === 'demand'   && <DemandOraclePanel />}
         {activeTab === 'rfm'      && <RFMOraclePanel />}
         {activeTab === 'forecast' && <ForecastOraclePanel />}

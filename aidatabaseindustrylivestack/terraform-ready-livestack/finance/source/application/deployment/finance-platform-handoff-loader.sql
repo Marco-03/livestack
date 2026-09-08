@@ -1975,17 +1975,20 @@ FROM influencers;
 
 CREATE OR REPLACE VIEW client_transactions_v AS
 SELECT
-  order_id AS transaction_id,
-  customer_id AS client_id,
-  order_status AS transaction_status,
-  order_total AS transaction_value,
-  shipping_cost AS service_fee,
-  fulfillment_center_id AS service_center_id,
-  social_source_id AS risk_signal_id,
-  demand_score AS urgency_score,
-  created_at,
-  updated_at
-FROM orders;
+  orders.order_id AS transaction_id,
+  orders.customer_id AS client_id,
+  customers.customer_tier AS client_tier,
+  orders.order_status AS transaction_status,
+  orders.order_total AS transaction_value,
+  orders.shipping_cost AS service_fee,
+  orders.fulfillment_center_id AS service_center_id,
+  orders.social_source_id AS risk_signal_id,
+  orders.demand_score AS urgency_score,
+  orders.created_at,
+  orders.updated_at
+FROM orders
+JOIN customers
+  ON customers.customer_id = orders.customer_id;
 
 CREATE OR REPLACE VIEW service_centers_v AS
 SELECT

@@ -81,6 +81,40 @@ test('generated-SQL policy accepts a single curated SELECT and ordinary CTE', ()
   );
 });
 
+test('generated-SQL policy treats parenthesized boolean predicates as SQL grammar, not functions', () => {
+  assert.equal(
+    nativeAi.validateReadOnlySql(
+      `SELECT product_name, signal_severity
+         FROM finance_signal_product_exposure_v
+        WHERE signal_severity >= 75
+          AND (product_name IS NOT NULL OR signal_linked_value > 0)`
+    ).includes('AND (product_name'),
+    true
+  );
+});
+
+test('visible Finance cards use validated governed query plans', () => {
+  const plans = Object.entries(nativeAi.CURATED_CARD_QUERY_PLANS);
+  assert.equal(plans.length, 8);
+  for (const [question, sql] of plans) {
+    assert.ok(question.endsWith('?') || question.endsWith('.'));
+    assert.doesNotThrow(() => nativeAi.validateReadOnlySql(sql));
+  }
+
+  const amlSql = nativeAi.curatedCardSql(
+    'Which fraud and Anti-Money Laundering (AML) signals are driving the most Seer Bank transaction exposure?'
+  );
+  assert.match(amlSql, /UPPER\(signal_text\) LIKE '%FRAUD%'/);
+  assert.match(amlSql, /UPPER\(signal_text\) LIKE '%AML%'/);
+  assert.equal(nativeAi.curatedCardSql('free-form finance question'), null);
+});
+
+test('Finance agent requests route to the relevant specialist worker', () => {
+  assert.equal(nativeAi.routeFinanceQuestion('Which AML signals have the highest severity?'), 'SOCIAL_TREND_TEAM');
+  assert.equal(nativeAi.routeFinanceQuestion('Which service center has the highest SLA pressure?'), 'FULFILLMENT_TEAM');
+  assert.equal(nativeAi.routeFinanceQuestion('Which products have the greatest exposure?'), 'COMMERCE_TEAM');
+});
+
 test('generated-SQL policy rejects base tables, DUAL, other schemas, and links', () => {
   sqlBlocked('SELECT * FROM orders');
   sqlBlocked('SELECT 1 FROM dual');
@@ -340,13 +374,13 @@ test('generic agent chat grounds once, runs the native supervisor, and verifies 
   );
   assert.equal(calls[2].demoUser, 'regional_maya');
   assert.match(calls[3].sql, /FINANCE_NATIVE_AI_PKG\.RUN_AGENT/);
-  assert.equal(calls[3].binds.team_name, 'FINANCE_OPERATIONS_TEAM');
+  assert.equal(calls[3].binds.team_name, 'COMMERCE_TEAM');
   assert.equal(calls[3].binds.conversation_id, CONVERSATION_ID);
   assert.equal(calls[3].demoUser, 'regional_maya');
   assert.equal(calls[3].options.callTimeout, 300_000);
   assert.match(calls[3].binds.prompt, /No database tool is attached/);
   assert.match(calls[3].binds.prompt, /Escrow Account Service/);
-  assert.equal(calls[4].binds.team_name, 'FINANCE_OPERATIONS_TEAM');
+  assert.equal(calls[4].binds.team_name, 'COMMERCE_TEAM');
   assert.equal(calls[4].binds.conversation_id, CONVERSATION_ID);
   assert.equal(calls[4].options.callTimeout, 30_000);
   assert.equal(result.package, 'DBMS_CLOUD_AI_AGENT');
