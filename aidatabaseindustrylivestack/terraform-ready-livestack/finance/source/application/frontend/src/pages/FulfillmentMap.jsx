@@ -710,31 +710,43 @@ export default function FulfillmentMap() {
             <FeatureBadge label="demand_forecasts" color="red" />
             <FeatureBadge label="client_tier" color="purple" />
           </div>
-          <SqlBlock code={`-- Nearest compliant branch service center with capacity
-BEGIN
-  :nearest_centers := find_nearest_centers(
-    p_customer_id => :customer_id,
-    p_product_id  => :product_id,
-    p_max_results => 3
-  );
-END;
-/
-
--- find_nearest_centers returns latitude, longitude, distance_km,
--- estimated_hours, and orders by raw SDO_GEOM.SDO_DISTANCE(..., 'unit=KM')`} />
+          <SqlBlock code={`-- Nearest compliant service centers with available capacity
+-- Concrete seeded example: customer 87539 and product 8172.
+SELECT fc.center_id,
+       fc.center_name,
+       fc.city,
+       fc.state_province,
+       fc.center_type,
+       i.quantity_on_hand,
+       ROUND(SDO_GEOM.SDO_DISTANCE(
+         c.location, fc.location, 0.005, 'unit=KM'), 2) AS distance_km,
+       ROUND(SDO_GEOM.SDO_DISTANCE(
+         c.location, fc.location, 0.005, 'unit=KM') / 80, 1) AS estimated_hours
+FROM customers c
+JOIN inventory i ON i.product_id = 8172
+JOIN fulfillment_centers fc ON fc.center_id = i.center_id
+WHERE c.customer_id = 87539
+  AND fc.is_active = 1
+  AND i.quantity_on_hand > i.quantity_reserved
+ORDER BY distance_km
+FETCH FIRST 3 ROWS ONLY;`} />
           <SqlBlock code={`-- Service-pressure regions: Oracle SDO_GEOMETRY -> GeoJSON
 -- SDO_UTIL.TO_GEOJSON converts polygon boundary for frontend rendering
 SELECT r.region_name, r.demand_index,
        TO_CHAR(SDO_UTIL.TO_GEOJSON(r.boundary)) AS geojson,
-       AVG(df.predicted_demand)  AS avg_7day_forecast,
-       MAX(df.social_factor)     AS peak_social_factor
+       (SELECT ROUND(AVG(df.predicted_demand), 0)
+          FROM demand_forecasts df
+         WHERE UPPER(df.region) = UPPER(r.region_name)
+           AND df.forecast_date BETWEEN
+               (SELECT MAX(forecast_date) FROM demand_forecasts) - 6
+               AND (SELECT MAX(forecast_date) FROM demand_forecasts)) AS avg_7day_forecast,
+       (SELECT ROUND(MAX(df.social_factor), 2)
+          FROM demand_forecasts df
+         WHERE UPPER(df.region) = UPPER(r.region_name)
+           AND df.forecast_date BETWEEN
+               (SELECT MAX(forecast_date) FROM demand_forecasts) - 6
+               AND (SELECT MAX(forecast_date) FROM demand_forecasts)) AS peak_social_factor
 FROM   demand_regions r
-LEFT JOIN demand_forecasts df
-       ON UPPER(df.region) = UPPER(r.region_name)
-      AND df.forecast_date BETWEEN TRUNC(SYSDATE)
-                               AND TRUNC(SYSDATE) + 7
-GROUP BY r.region_id, r.region_name,
-         r.demand_index, r.boundary
 ORDER BY r.demand_index DESC;`} />
           <div>
             <p className="text-xs font-semibold text-[var(--color-text-dim)] uppercase tracking-wider mb-2">Virtual Private Database (VPD)</p>
@@ -752,8 +764,11 @@ ORDER BY r.demand_index DESC;`} />
             <FeatureBadge label="sc_security_ctx" color="yellow" />
             <FeatureBadge label="SYS_CONTEXT" color="yellow" />
           </div>
-          <SqlBlock code={`-- VPD: Set user context before every query
-BEGIN sc_security_ctx.set_user_context('fm_west_maria'); END;
+          <SqlBlock code={`-- VPD: Set user context, then query the protected table
+BEGIN
+  sc_security_ctx.set_user_context('fm_west_maria');
+END;
+/
 
 -- The VPD policy function (transparent to app SQL):
 -- vpd_fulfillment_region() returns:
@@ -761,14 +776,16 @@ BEGIN sc_security_ctx.set_user_context('fm_west_maria'); END;
 --   admin/analyst   → NULL  (no filter, sees all rows)
 --   viewer          → 'is_active = 1'
 
--- Policy attached to FULFILLMENT_CENTERS:
-DBMS_RLS.ADD_POLICY(
-  object_name   => 'FULFILLMENT_CENTERS',
-  policy_name   => 'VPD_FC_REGION',
-  function_schema => USER,
-  policy_function => 'VPD_FULFILLMENT_REGION',
-  statement_types => 'SELECT,UPDATE'
-);`} />
+-- This SELECT is filtered by VPD to Maria's California centers.
+SELECT center_name,
+       city,
+       state_province,
+       sc_security_ctx.get_role()   AS role_name,
+       sc_security_ctx.get_region() AS region
+FROM fulfillment_centers
+WHERE is_active = 1
+ORDER BY center_name
+FETCH FIRST 10 ROWS ONLY;`} />
           <div>
             <p className="text-[10px] font-semibold text-[var(--color-text-dim)] uppercase tracking-wider mb-2">Spatial Layer Architecture</p>
             <div className="space-y-1">

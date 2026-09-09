@@ -26,14 +26,14 @@ const DOM_SKIP_TAGS = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT']);
 const NAV_ITEMS = [
   { id: 'welcome', label: 'Welcome', iconClass: 'oj-fwk-icon oj-fwk-icon-info', featureTags: ['Oracle AI Database 26ai', 'Converged Finance'] },
   { id: 'datamodel', label: 'Data Foundation', iconClass: 'oj-fwk-icon oj-fwk-icon-folderhierarchy', featureTags: ['JSON Duality', 'Graph', 'Vector'] },
-  { id: 'dashboard', label: 'Risk & Operations Command Center', iconClass: 'oj-fwk-icon oj-fwk-icon-grid', featureTags: ['In-Memory', 'Native JSON'] },
-  { id: 'social', label: 'Risk Signal Intelligence', iconClass: 'oj-fwk-icon oj-fwk-icon-sortrelevancehigh', featureTags: ['Vector Search', 'VPD'] },
+  { id: 'dashboard', label: 'Risk & Operations Dashboard', iconClass: 'oj-fwk-icon oj-fwk-icon-grid', featureTags: ['In-Memory', 'Native JSON'] },
+  { id: 'social', label: 'Risk Monitor', iconClass: 'oj-fwk-icon oj-fwk-icon-sortrelevancehigh', featureTags: ['Vector Search', 'VPD'] },
   { id: 'graph', label: 'Financial Crime Network Graph', iconClass: 'oj-fwk-icon oj-fwk-icon-node-expand', featureTags: ['Property Graph', 'SQL/PGQ'] },
   { id: 'fulfillment', label: 'Client Service & SLA Coverage Map', iconClass: 'oj-fwk-icon oj-fwk-icon-calendar-clock', featureTags: ['Oracle Spatial', 'VPD'] },
   { id: 'orders', label: 'Transaction & Case Operations', iconClass: 'oj-fwk-icon oj-fwk-icon-tree-document', featureTags: ['JSON Duality', 'VPD'] },
-  { id: 'oml', label: 'OML Risk, Capacity & Revenue Analytics', iconClass: 'oj-fwk-icon oj-fwk-icon-view', featureTags: ['OML', 'Vector K-Means'] },
+  { id: 'oml', label: 'OML Risk, Capacity & Revenue Forecasts', iconClass: 'oj-fwk-icon oj-fwk-icon-view', featureTags: ['OML', 'Vector K-Means'] },
   { id: 'askdata', label: 'Ask Finance Data', iconClass: 'oj-fwk-icon oj-fwk-icon-magnifier', featureTags: ['Natural Language SQL', 'Live Schema'] },
-  { id: 'agents', label: 'Finance Agent Console', iconClass: 'oj-fwk-icon oj-fwk-icon-users', featureTags: ['VPD Evidence', 'JSON Audit'] },
+  { id: 'agents', label: 'Finance Agent Console', iconClass: 'oj-fwk-icon oj-fwk-icon-users', featureTags: ['PL/SQL Tools', 'JSON Audit'] },
 ];
 
 const PAGES = {

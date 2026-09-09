@@ -23,7 +23,7 @@ const CAPABILITY_GROUPS = [
     title: 'Operational Transaction Core',
     accent: '#437C94',
     icon: ShoppingCart,
-    summary: 'Financial products, clients, transactions, cases, and service rows remain the governed system of record.',
+    summary: 'Financial products, clients, transactions, cases, and service rows remain the system of record.',
     detail: 'This is the Seer operational core: ACID transactions, exposure values, service routing, and client history.',
   },
   {
@@ -38,7 +38,7 @@ const CAPABILITY_GROUPS = [
     accent: '#796087',
     icon: Network,
     summary: 'Account, device, IP, payee, merchant, branch, and case links provide graph traversal and relationship analysis.',
-    detail: 'The graph layer explains fraud-ring exposure, shared infrastructure, mule flows, and case evidence strength.',
+    detail: 'The graph layer explains fraud-ring exposure, shared infrastructure, mule flows, and support for the finding.',
   },
   {
     title: 'Client Service Coverage',
@@ -58,8 +58,8 @@ const CAPABILITY_GROUPS = [
     title: 'Predictive Risk & Decisioning',
     accent: '#4C825C',
     icon: BrainCircuit,
-    summary: 'Forecasts, risk intelligence, and agent workflows run against the same governed Oracle data foundation.',
-    detail: 'This is where evidence retrieval, risk scoring, exposure prediction, and action logging converge.',
+    summary: 'Forecasts, risk analysis, and agent workflows use the same Oracle data model.',
+    detail: 'This is where data retrieval, risk scoring, exposure prediction, and action logging come together.',
   },
 ];
 
@@ -166,7 +166,7 @@ function restoreMessageForJob(job) {
   const baseMessage = job?.message || 'Restoring bundled demo dataset...';
   const progress = Number(job?.progress ?? 0);
   if (progress >= 92 || /vector artifacts|embedding|semantic/i.test(baseMessage)) {
-    return `${baseMessage} Risk intelligence indexes are rebuilt during the final step and appear when the restore finishes.`;
+    return `${baseMessage} Risk search indexes are rebuilt during the final step and appear when the restore finishes.`;
   }
   return baseMessage;
 }
@@ -363,13 +363,13 @@ export default function DataModel() {
           <div>
             <p className="text-xs font-semibold text-[var(--color-text-dim)] uppercase tracking-wider mb-2">Demo Readiness</p>
             <p className="text-[var(--color-text)] leading-relaxed">
-              Start here to load or restore the Seer Bank dataset before exploring the fraud-led finance journey. The action prepares the governed Oracle AI Database 26ai foundation used by the risk dashboard, signal intelligence, financial crime graph, service coverage, analytics, and AI agents.
+              Load or restore the Seer Bank dataset before opening the finance screens. This prepares the Oracle AI Database 26ai data model used by the risk dashboard, fraud graph, service map, analytics, and agents.
             </p>
           </div>
           <div>
             <p className="text-xs font-semibold text-[var(--color-text-dim)] uppercase tracking-wider mb-2">Why It Matters</p>
             <p className="text-[var(--color-text)] leading-relaxed">
-              The same foundation supports transaction analysis, financial crime investigation, risk signal search, spatial service routing, document projections, forecasting, and agent actions without splitting evidence across separate data stores. After the dataset is ready, each downstream page is working from the same governed Oracle data model.
+              The same data model supports transaction analysis, financial-crime investigation, risk searches, service routing, JSON documents, forecasting, and agent actions. Every page reads from the same Oracle database.
             </p>
           </div>
           <div className="flex flex-wrap gap-1.5">
@@ -400,13 +400,13 @@ export default function DataModel() {
           Data Foundation
         </h2>
         <p className="text-sm text-[var(--color-text-dim)] mt-1">
-          Prepare the governed Seer Bank dataset before you move into the fraud-led risk and operations journey.
+          Prepare the Seer Bank dataset before opening the risk and operations screens.
         </p>
       </div>
 
       <div className="glass-card p-5" style={{ borderLeft: '3px solid var(--color-accent)' }}>
         <p className="text-base text-[var(--color-text)] leading-7">
-          Start here to load the Seer Bank demo dataset. This action prepares financial products, clients, transactions, cases, fraud and compliance signals, service geography, risk intelligence indexes, predictive outputs, and agent audit history. Once the load completes, the live footprint confirms that the database is ready for the demo workflows.
+          Load the Seer Bank demo dataset. The restore creates financial products, clients, transactions, cases, fraud and compliance warnings, service locations, search indexes, forecasts, and agent history. When it finishes, the counts show that the database is ready.
         </p>
       </div>
 
@@ -458,7 +458,7 @@ export default function DataModel() {
             </div>
             {showingProjectedCounts ? (
               <div className="text-[11px] text-[var(--color-text-dim)]">
-                Showing the best available live and restore counts while Oracle rebuilds the risk intelligence indexes. Product, signal, and evidence-match counts refresh as soon as the API reports them.
+                Showing the best available live and restore counts while Oracle rebuilds the search indexes. Product, signal, and match counts refresh as soon as the API reports them.
               </div>
             ) : null}
             {demoDone ? (

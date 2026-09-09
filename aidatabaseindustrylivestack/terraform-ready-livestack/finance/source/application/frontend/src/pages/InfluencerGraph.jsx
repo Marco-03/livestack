@@ -841,26 +841,30 @@ export default function InfluencerGraph() {
             <FeatureBadge label="No External Graph DB" color="green" />
           </div>
           <SqlBlock code={`-- ISO SQL/PGQ: fraud entities within 3 hops
-SELECT reached.entity_key, reached.entity_type,
-       reached.risk_score, reached.total_amount
+-- Uses the seeded account ACCT-8841 and aliases GRAPH_TABLE columns
+-- so the result is executable without a bind variable.
+SELECT DISTINCT entity_key,
+       entity_type,
+       risk_score,
+       total_amount
 FROM GRAPH_TABLE(
   fraud_network
   MATCH
     (seed IS entity)
     -[e IS related_to]->{1,3}
     (reached IS entity)
-  WHERE seed.entity_key = :entity_key
+  WHERE seed.entity_key = 'ACCT-8841'
   COLUMNS (
-    reached.entity_key,
-    reached.entity_type,
-    reached.risk_score,
-    reached.total_amount
+    reached.entity_key AS entity_key,
+    reached.entity_type AS entity_type,
+    reached.risk_score AS risk_score,
+    reached.total_amount AS total_amount
   )
 )
 ORDER BY risk_score DESC
 FETCH FIRST 25 ROWS ONLY;`} />
           <SqlBlock code={`-- Create the property graph over relational tables
-CREATE PROPERTY GRAPH fraud_network
+CREATE PROPERTY GRAPH fraud_network_internal
   VERTEX TABLES (
     fraud_entities KEY (entity_id) LABEL entity
       PROPERTIES (entity_id, entity_key, display_name,

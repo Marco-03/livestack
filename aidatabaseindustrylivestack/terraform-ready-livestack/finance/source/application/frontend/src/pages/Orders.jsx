@@ -238,7 +238,7 @@ function OrderDualityPanel({ orderId, onClose }) {
                 />
               ))}
               <span className="text-[10px] text-[var(--color-text-dim)] ml-3 hidden sm:inline">
-                Same governed case data - three views
+                Same case data - three views
               </span>
             </div>
             <JetButton
@@ -637,7 +637,7 @@ export default function Orders() {
               REST-style JSON access to client transactions with nested service rows. Read-write: inserts through the view update both <span className="font-mono text-[var(--color-text)]">orders</span> and{' '}
               <span className="font-mono text-[var(--color-text)]">order_items</span> tables atomically.
             </p>
-            <SqlBlock code={`CREATE JSON RELATIONAL DUALITY VIEW orders_dv AS
+            <SqlBlock code={`CREATE OR REPLACE JSON RELATIONAL DUALITY VIEW orders_dv AS
 SELECT JSON {
   '_id': o.order_id,
   'customerId': o.customer_id,
@@ -662,7 +662,7 @@ FROM orders o WITH UPDATE;`} />
             <p className="text-xs text-[var(--color-text-dim)] mb-2 leading-relaxed">
               Financial products with nested service capacity across all Seer service centers. One document, two tables.
             </p>
-            <SqlBlock code={`CREATE JSON RELATIONAL DUALITY VIEW products_capacity_dv AS
+            <SqlBlock code={`CREATE OR REPLACE JSON RELATIONAL DUALITY VIEW products_capacity_dv AS
 SELECT JSON {
   '_id': p.product_id,
   'sku': p.sku,
@@ -701,17 +701,20 @@ FROM products p WITH UPDATE;`} />
               How to Query a Duality View
             </p>
             <SqlBlock code={`-- Relational: traditional row-by-row access
-SELECT o.order_id, c.full_name, o.order_total,
+-- Concrete seeded example: order 670724.
+SELECT o.order_id,
+       c.first_name || ' ' || c.last_name AS customer_name,
+       o.order_total,
        oi.product_id, oi.quantity, oi.unit_price
 FROM   orders o
 JOIN   customers c    ON c.customer_id = o.customer_id
 JOIN   order_items oi ON oi.order_id   = o.order_id
-WHERE  o.order_id = :id;
+WHERE  o.order_id = 670724;
 
 -- Duality: same data as a single JSON document
 SELECT DATA FROM orders_dv
-WHERE  JSON_VALUE(DATA, '$._id' RETURNING NUMBER) = :id;
--- Returns: {"_id":1, "status":"routed", "items":[...]}`} />
+WHERE  JSON_VALUE(DATA, '$._id' RETURNING NUMBER) = 670724;
+-- Returns: {"_id":670724, "status":"completed", "items":[...]}`} />
           </div>
 
           {/* Visual diagram */}
@@ -802,11 +805,21 @@ BEGIN
 
     RETURN NULL;  -- others see all
 END;
+/
 
--- Applied via:
-DBMS_RLS.ADD_POLICY('ORDERS','VPD_ORDERS_REGION',
-  policy_function => 'VPD_ORDERS_REGION',
-  statement_types => 'SELECT');`} />
+-- Applied via a correctly scoped DBMS_RLS policy call:
+BEGIN
+  DBMS_RLS.ADD_POLICY(
+    object_schema   => USER,
+    object_name     => 'ORDERS',
+    policy_name     => 'VPD_ORDERS_REGION',
+    function_schema => USER,
+    policy_function => 'VPD_ORDERS_REGION',
+    statement_types => 'SELECT',
+    enable          => TRUE
+  );
+END;
+/`} />
         </div>
       </RegisterOraclePanel>
 

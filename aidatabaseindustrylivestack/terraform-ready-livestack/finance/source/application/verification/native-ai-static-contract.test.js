@@ -126,6 +126,15 @@ test('Select AI metadata declares the exact 12 curated views', () => {
   ].sort());
 });
 
+test('the governed client transaction view exposes client tier for its visible card', () => {
+  const loader = fs.readFileSync(
+    path.join(applicationRoot, 'deployment', 'finance-platform-handoff-loader.sql'),
+    'utf8'
+  );
+  assert.match(loader, /customers\.customer_tier\s+AS\s+client_tier/i);
+  assert.match(loader, /FROM orders\s+JOIN customers/i);
+});
+
 test('native conversations reset when the unauthenticated demo user changes', () => {
   const askData = fs.readFileSync(
     path.join(applicationRoot, 'frontend', 'src', 'pages', 'AskData.jsx'),

@@ -182,9 +182,9 @@ function VectorSearch() {
     <div className="glass-card p-5 border border-teal-soft social-vector-search-panel">
       <div className="flex items-center gap-2 mb-4">
         <Sparkles size={18} className="tone-teal social-vector-search-panel__spark" />
-        <h3 className="social-vector-search-panel__title">Financial Product & Exposure Intelligence Search</h3>
+        <h3 className="social-vector-search-panel__title">Financial Product & Exposure Search</h3>
         <span className="social-vector-search-panel__chip text-[var(--color-text)] border border-teal-soft">
-          Governed match · exposure ranking
+          Matched results · ranked by exposure
         </span>
       </div>
 
@@ -243,7 +243,7 @@ function VectorSearch() {
             </p>
                 {meta && (
                   <span className="text-[10px] text-[var(--color-text-dim)]">
-                    evidence-ranked risk match · governed product index
+                    Risk match · product search index
                   </span>
                 )}
           </div>
@@ -349,7 +349,7 @@ export default function SocialFeed() {
     <div className="space-y-6 fade-in">
 
       {/* Register Oracle Internals into the right panel */}
-      <RegisterOraclePanel title="Risk Signal Intelligence">
+      <RegisterOraclePanel title="Risk Monitor">
         <div className="space-y-4">
           <div>
             <p className="text-xs font-semibold text-[var(--color-text-dim)] uppercase tracking-wider mb-2">What's Happening</p>
@@ -381,8 +381,8 @@ SELECT p.product_id, p.product_name, p.category,
        b.brand_name,
        ROUND(1 - VECTOR_DISTANCE(
          pe.embedding,
-         VECTOR_EMBEDDING(ALL_MINILM_L12_V2
-                          USING :query AS DATA),
+       VECTOR_EMBEDDING(ALL_MINILM_L12_V2
+                        USING 'digital wallet fraud' AS DATA),
          COSINE), 4)             AS similarity_score
 FROM   product_embeddings pe
 JOIN   products p ON pe.product_id = p.product_id
@@ -390,7 +390,7 @@ JOIN   brands   b ON p.brand_id   = b.brand_id
 ORDER  BY VECTOR_DISTANCE(
   pe.embedding,
   VECTOR_EMBEDDING(ALL_MINILM_L12_V2
-                   USING :query AS DATA),
+                   USING 'digital wallet fraud' AS DATA),
   COSINE)
 FETCH APPROXIMATE FIRST 10 ROWS ONLY;`} />
           <div>
@@ -435,7 +435,7 @@ FETCH APPROXIMATE FIRST 10 ROWS ONLY;`} />
 
       <div>
         <h2 className="text-2xl font-bold flex items-center gap-2">
-          <TrendingUp className="text-[var(--color-accent)]" /> Seer Risk Signal Intelligence Monitor
+          <TrendingUp className="text-[var(--color-accent)]" /> Seer Risk Monitor
         </h2>
         <p className="text-sm text-[var(--color-text-dim)] mt-1">
           Fraud, Anti-Money Laundering (AML), regulatory, and market activity triaged into product exposure, investigation priority, and operational response.
@@ -531,8 +531,8 @@ FETCH APPROXIMATE FIRST 10 ROWS ONLY;`} />
         <div className="space-y-3">
           <div className="flex items-center gap-2 text-xs text-[var(--color-text-dim)]">
             <Sparkles size={12} className="tone-teal" />
-            <span>Risk intelligence results for "<span className="tone-teal">{postSearchResults.query}</span>"</span>
-            <span className="text-[10px]">ranked by evidence match</span>
+            <span>Risk results for "<span className="tone-teal">{postSearchResults.query}</span>"</span>
+            <span className="text-[10px]">ranked by match quality</span>
           </div>
           {postSearchResults.posts?.length === 0 ? (
             <p className="text-sm text-[var(--color-text-dim)]">No matching bulletins found.</p>

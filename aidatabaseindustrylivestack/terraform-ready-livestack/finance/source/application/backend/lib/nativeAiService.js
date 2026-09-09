@@ -44,6 +44,105 @@ const DEFAULT_ALLOWED_OBJECTS = Object.freeze([
   'FINANCE_FRAUD_CASE_EXPOSURE_V',
 ]);
 
+// The visible Finance examples are curated demo paths, not free-form prompts.
+// Keep their query plans deterministic so a model cannot select an unrelated
+// column (for example product category instead of the risk-signal text) before
+// the answer is grounded and narrated. Every plan uses only the profile's
+// governed view allowlist and is still validated before execution.
+const CURATED_CARD_QUERY_PLANS = Object.freeze({
+  'which fraud and anti-money laundering (aml) signals are driving the most seer bank transaction exposure?': `
+    SELECT signal_text,
+           severity_band,
+           criticality_score,
+           exposure_count,
+           financial_product_name,
+           product_category,
+           product_match_confidence
+      FROM finance_signal_product_exposure_v
+     WHERE UPPER(signal_text) LIKE '%FRAUD%'
+        OR UPPER(signal_text) LIKE '%AML%'
+     ORDER BY criticality_score DESC, exposure_count DESC
+     FETCH FIRST 10 ROWS ONLY`,
+  'show transaction exposure by financial product category for signal-linked transactions.': `
+    SELECT product_category,
+           COUNT(DISTINCT transaction_id) AS transaction_count,
+           SUM(line_exposure) AS signal_linked_exposure,
+           AVG(urgency_score) AS average_urgency_score
+      FROM finance_transaction_exposure_v
+     WHERE risk_signal_id IS NOT NULL
+     GROUP BY product_category
+     ORDER BY signal_linked_exposure DESC
+     FETCH FIRST 10 ROWS ONLY`,
+  'show the top fraud cases by connected account value.': `
+    SELECT case_ref,
+           case_type,
+           case_status,
+           case_risk_score,
+           connected_entity_count,
+           connected_entity_value,
+           highest_connected_entity_risk
+      FROM finance_fraud_case_exposure_v
+     ORDER BY connected_entity_value DESC NULLS LAST, case_risk_score DESC
+     FETCH FIRST 10 ROWS ONLY`,
+  'which seer service centers are at risk of missing investigation sla this week?': `
+    SELECT service_center_name,
+           service_center_type,
+           city,
+           state_province,
+           utilization_pct,
+           open_transaction_count,
+           constrained_product_count,
+           transaction_exposure,
+           average_urgency_score
+      FROM finance_service_pressure_v
+     WHERE utilization_pct >= 75
+        OR constrained_product_count > 0
+        OR open_transaction_count > 0
+     ORDER BY utilization_pct DESC, open_transaction_count DESC, transaction_exposure DESC
+     FETCH FIRST 10 ROWS ONLY`,
+  'what institutions have the highest signal-linked transaction value?': `
+    SELECT institution_name,
+           institution_type,
+           COUNT(DISTINCT transaction_id) AS transaction_count,
+           SUM(line_exposure) AS signal_linked_exposure
+      FROM finance_institutions_v institution
+      JOIN finance_transaction_exposure_v exposure
+        ON exposure.institution_id = institution.institution_id
+     WHERE exposure.risk_signal_id IS NOT NULL
+     GROUP BY institution_name, institution_type
+     ORDER BY signal_linked_exposure DESC
+     FETCH FIRST 10 ROWS ONLY`,
+  'show client tiers with the highest signal-linked exposure.': `
+    SELECT client_tier,
+           COUNT(DISTINCT exposure.transaction_id) AS transaction_count,
+           SUM(exposure.line_exposure) AS signal_linked_exposure
+      FROM client_transactions_v client_txn
+      JOIN finance_transaction_exposure_v exposure
+        ON exposure.transaction_id = client_txn.transaction_id
+     WHERE exposure.risk_signal_id IS NOT NULL
+     GROUP BY client_tier
+     ORDER BY signal_linked_exposure DESC
+     FETCH FIRST 10 ROWS ONLY`,
+  'what is the total value of signal-linked client transactions?': `
+    SELECT COUNT(DISTINCT transaction_id) AS transaction_count,
+           SUM(line_exposure) AS total_signal_linked_value,
+           AVG(urgency_score) AS average_urgency_score
+      FROM finance_transaction_exposure_v
+     WHERE risk_signal_id IS NOT NULL`,
+  'show risk signal sources with the highest exposure impact.': `
+    SELECT source_name,
+           source_channel,
+           COUNT(DISTINCT signal_id) AS signal_count,
+           SUM(exposure_count) AS total_exposure_impact,
+           MAX(criticality_score) AS highest_criticality_score
+      FROM signal_sources_v source
+      JOIN risk_signals_v signal
+        ON signal.source_id = source.source_id
+     GROUP BY source_name, source_channel
+     ORDER BY total_exposure_impact DESC, highest_criticality_score DESC
+     FETCH FIRST 10 ROWS ONLY`,
+});
+
 const BLOCKED_APP_ROUTINES = Object.freeze([
   'FIND_MATCHING_PRODUCTS',
   'BATCH_SEMANTIC_MATCH',
@@ -258,6 +357,28 @@ function normalizeIdentifier(identifier) {
     .toUpperCase();
 }
 
+function normalizeQuestionKey(question) {
+  return String(question || '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
+}
+
+function curatedCardSql(question) {
+  return CURATED_CARD_QUERY_PLANS[normalizeQuestionKey(question)] || null;
+}
+
+function routeFinanceQuestion(question) {
+  const normalized = normalizeQuestionKey(question);
+  if (/\b(service|center|capacity|routing|route|sla|investigation load)\b/.test(normalized)) {
+    return 'FULFILLMENT_TEAM';
+  }
+  if (/\b(transaction|product|institution|client|account|case|exposure|revenue|loss)\b/.test(normalized)) {
+    return 'COMMERCE_TEAM';
+  }
+  return 'SOCIAL_TREND_TEAM';
+}
+
 function maskStringLiterals(sql) {
   return String(sql).replace(
     /'(?:''|[^'])*'/g,
@@ -417,7 +538,16 @@ function validateReadOnlySql(value, {
     });
   }
   const safeFunctions = new Set(SAFE_SQL_FUNCTIONS);
-  const sqlConstructs = new Set(['AS', 'EXISTS', 'IN', 'OVER', 'VALUES']);
+  // This scan deliberately sees SQL keywords followed by a parenthesized
+  // expression (for example, `AND (...)`) in addition to function calls.
+  // Treat grammar keywords as constructs, not functions, while continuing to
+  // enforce the explicit allowlist for every actual function name.
+  const sqlConstructs = new Set([
+    'ALL', 'AND', 'ANY', 'AS', 'BY', 'CASE', 'ELSE', 'EXISTS', 'FROM',
+    'GROUP', 'HAVING', 'IN', 'JOIN', 'NOT', 'ON', 'OR', 'ORDER', 'OVER',
+    'PARTITION', 'SELECT', 'SOME', 'THEN', 'USING', 'VALUES', 'WHEN',
+    'WHERE', 'WITH',
+  ]);
   const sqlWithoutStringLiterals = maskStringLiterals(sql);
   const functionCalls = sqlWithoutStringLiterals.matchAll(/\b"?([A-Z][A-Z0-9_$#]*)"?\s*\(/gi);
   for (const match of functionCalls) {
@@ -711,7 +841,8 @@ function createNativeAiService({
     conversationId = null,
   } = {}) {
     const resolvedConversationId = await resolveConversationId(conversationId);
-    const rawSql = await generateText('SHOWSQL', question, {
+    const cardSql = curatedCardSql(question);
+    const rawSql = cardSql || await generateText('SHOWSQL', question, {
       requestedProfile,
       conversationId: resolvedConversationId,
     });
@@ -719,6 +850,7 @@ function createNativeAiService({
     return {
       sql,
       action: 'SHOWSQL',
+      querySource: cardSql ? 'curated-card' : 'select-ai',
       profile,
       model,
       region,
@@ -835,7 +967,11 @@ function createNativeAiService({
         statusCode: 400,
       });
     }
-    const resolvedTeam = normalizeTeam(requestedTeam || primaryTeam);
+    // The primary supervisor is retained for direct platform inspection, but
+    // web requests are deterministically routed to one worker. This avoids a
+    // supervisor delegation failure turning a single-domain advisory question
+    // into an application error.
+    const resolvedTeam = normalizeTeam(requestedTeam || routeFinanceQuestion(userPrompt));
     const resolvedConversationId = await resolveConversationId(conversationId);
     const suppliedHistory = compactConversation(history);
     const recent = conversationId ? [] : suppliedHistory;
@@ -1054,6 +1190,8 @@ function createNativeAiService({
     normalizeProfile,
     normalizeTeam,
     resolveConversationId,
+    curatedCardSql,
+    routeFinanceQuestion,
     runAgentTeam,
     runQuestionQuery,
     validateReadOnlySql: (sql) => validateReadOnlySql(sql, { allowedObjects, allowedSchema }),
@@ -1074,7 +1212,10 @@ module.exports = {
   SAFE_SQL_FUNCTIONS,
   buildBoundedPrompt,
   createNativeAiService,
+  CURATED_CARD_QUERY_PLANS,
+  curatedCardSql,
   normalizeConversationId,
+  routeFinanceQuestion,
   truncateForPrompt,
   validateReadOnlySql,
   ...defaultService,
