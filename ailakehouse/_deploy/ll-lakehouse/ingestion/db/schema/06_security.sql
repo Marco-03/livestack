@@ -573,7 +573,9 @@ BEGIN
 EXCEPTION
     WHEN OTHERS THEN
         IF SQLCODE = -46358 THEN
-            DBMS_OUTPUT.PUT_LINE('Audit policy PG_ORDER_AUDIT already exists.');
+            DBMS_OUTPUT.PUT_LINE('Audit policy SC_ORDER_AUDIT already exists.');
+        ELSIF SQLCODE IN (-41732, -1031) THEN
+            DBMS_OUTPUT.PUT_LINE('Audit policy SC_ORDER_AUDIT is not available to this schema; skipping it.');
         ELSE
             RAISE;
         END IF;
