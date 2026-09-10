@@ -170,6 +170,7 @@ services:
       DBPORT: 1521
       DBSERVICENAME: FREEPDB1
       ORACLE_PWD: ${ORACLE_PWD:-oracle}
+      ORACLE_USER_PWD: ${ORACLE_USER_PWD:-oracle}
     ports:
       - 8181:8080
     volumes:
