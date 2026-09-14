@@ -104,7 +104,7 @@ require_service_text "mongodb-catalog" "mongosh --quiet"
 require_service_text "mongodb-catalog" '--password=\"$${MONGO_INITDB_ROOT_PASSWORD}\"'
 
 require_service_text "ords" 'ORACLE_PWD: ${ORACLE_PWD:-oracle}'
-require_service_text "ords" 'ORACLE_USER_PWD: ${ORACLE_PWD:-oracle}'
+require_service_text "ords" 'ORACLE_USER_PWD: ${ORACLE_USER_PWD:-oracle}'
 
 for seed_file in \
   "${PROJECT_ROOT}/ingestion/source-databases/postgres/01-demo-products.sql" \
