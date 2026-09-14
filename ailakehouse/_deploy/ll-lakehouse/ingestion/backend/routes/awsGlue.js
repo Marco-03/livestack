@@ -9,18 +9,22 @@ const DEFAULT_REGION = 'us-east-1';
 const DEFAULT_WALLET_DIR = '/wallet';
 const CATALOG_NAME = 'GLUE_CAT';
 const CREDENTIAL_NAME = 'AWS_CRED';
+const CATALOG_OWNER = 'PG';
 
 function cleanText(value) {
   return String(value || '').trim();
 }
 
 function targetConfig() {
+  const sharedPassword = process.env.DBPASSWORD || '';
+
   return {
     connectString: cleanText(process.env.ADB_CONNECTION_STRING)
       || cleanText(process.env.DBCONNECTION)
       || cleanText(process.env.ADB_SERVICE_NAME)
       || cleanText(process.env.SERVICE_NAME),
-    password: process.env.ADB_ADMIN_PASSWORD || process.env.DBPASSWORD || '',
+    adminPassword: process.env.ADB_ADMIN_PASSWORD || sharedPassword,
+    catalogPassword: process.env.ADB_STREAM_SCHEMA_PASSWORD || sharedPassword,
     walletDir: cleanText(process.env.ADB_WALLET_DIR) || DEFAULT_WALLET_DIR,
     walletPassword: process.env.ADB_WALLET_PASSWORD || process.env.ORACLE_WALLET_PASSWORD || '',
   };
@@ -75,7 +79,7 @@ async function requireAdminDemoUser(req) {
 
 async function withTargetAdminConnection(action) {
   const config = targetConfig();
-  if (!config.connectString || !config.password) {
+  if (!config.connectString || !config.adminPassword) {
     const err = new Error('Autonomous Database ADMIN connection is not configured.');
     err.statusCode = 503;
     throw err;
@@ -90,7 +94,40 @@ async function withTargetAdminConnection(action) {
   try {
     connection = await oracledb.getConnection({
       user: 'ADMIN',
-      password: config.password,
+      password: config.adminPassword,
+      connectString: config.connectString,
+      configDir: config.walletDir,
+      ...(config.walletPassword ? {
+        walletLocation: config.walletDir,
+        walletPassword: config.walletPassword,
+      } : {}),
+    });
+    return await action(connection);
+  } finally {
+    if (connection) {
+      try { await connection.close(); } catch (_) { /* ignore close failures */ }
+    }
+  }
+}
+
+async function withCatalogOwnerConnection(action) {
+  const config = targetConfig();
+  if (!config.connectString || !config.catalogPassword) {
+    const err = new Error(`Autonomous Database ${CATALOG_OWNER} connection is not configured.`);
+    err.statusCode = 503;
+    throw err;
+  }
+  if (!(await hasWalletDirectory(config.walletDir))) {
+    const err = new Error('The Autonomous Database wallet is not available to the application.');
+    err.statusCode = 503;
+    throw err;
+  }
+
+  let connection;
+  try {
+    connection = await oracledb.getConnection({
+      user: CATALOG_OWNER,
+      password: config.catalogPassword,
       connectString: config.connectString,
       configDir: config.walletDir,
       ...(config.walletPassword ? {
@@ -116,12 +153,12 @@ async function configureGlueCatalog({ accessKeyId, secretAccessKey, region }) {
            upper_port => 443,
            ace        => XS$ACE_TYPE(
              privilege_list => XS$NAME_LIST('http'),
-             principal_name => 'ADMIN',
+             principal_name => :catalogOwner,
              principal_type => XS_ACL.PTYPE_DB
            )
          );
        END;`,
-      { s3Host: `s3.${region}.amazonaws.com` },
+      { s3Host: `s3.${region}.amazonaws.com`, catalogOwner: CATALOG_OWNER },
     );
 
     await connection.execute(
@@ -132,13 +169,16 @@ async function configureGlueCatalog({ accessKeyId, secretAccessKey, region }) {
            upper_port => 443,
            ace        => XS$ACE_TYPE(
              privilege_list => XS$NAME_LIST('http', 'http_proxy'),
-             principal_name => 'ADMIN',
+             principal_name => :catalogOwner,
              principal_type => XS_ACL.PTYPE_DB
            )
          );
        END;`,
+      { catalogOwner: CATALOG_OWNER },
     );
+  });
 
+  await withCatalogOwnerConnection(async (connection) => {
     await connection.execute(
       `BEGIN
          BEGIN
@@ -206,6 +246,7 @@ router.post('/', async (req, res) => {
 
 module.exports = router;
 module.exports._private = {
+  CATALOG_OWNER,
   cleanText,
   targetConfig,
   validateRequest,

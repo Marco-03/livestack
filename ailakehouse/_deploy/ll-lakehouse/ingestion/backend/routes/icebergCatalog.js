@@ -18,6 +18,7 @@ function deriveIcebergRestUrl(environment = process.env) {
   const host = [
     environment.DATA_TRANSFORMS_ICEBERG_PUBLIC_HOST,
     environment.PUBLIC_HOST,
+    environment.SOURCE_PUBLIC_HOST,
     environment.PUBLIC_IP,
     environment.public_ip,
   ].map(isUsablePublicHost).find(Boolean);

@@ -81,7 +81,7 @@ const CHANGE_DATA_CAPTURE_PAGE_ID = 'customer-cdc';
 const SILVER_PROCESS_PAGE_ID = 'silver-process';
 const ICEBERG_CATALOG_SERVER_PAGE_ID = 'iceberg-catalog-server';
 const LOAD_TO_ICEBERG_PAGE_ID = 'load-to-iceberg';
-const DATA_SOURCES_PAGE_ID = 'data-sources';
+const DATA_CATALOG_PAGE_ID = 'data-sources';
 const PROCESS_SIDEBAR_EXCLUSIONS = new Set([
   'Data Quality & Enrichment',
   'Analytics-Ready Datasets',
@@ -132,10 +132,10 @@ const LOAD_TO_ICEBERG_NAV_ITEM = {
   label: 'Load Data to Iceberg Catalog Server',
   Icon: Upload,
 };
-const DATA_SOURCES_NAV_ITEM = {
-  id: DATA_SOURCES_PAGE_ID,
-  pageId: DATA_SOURCES_PAGE_ID,
-  label: 'Data Sources',
+const DATA_CATALOG_NAV_ITEM = {
+  id: DATA_CATALOG_PAGE_ID,
+  pageId: DATA_CATALOG_PAGE_ID,
+  label: DATA_CATALOG_LABEL,
   Icon: Database,
 };
 
@@ -149,7 +149,7 @@ const BASE_ROUTED_NAV_ITEMS = [
   LOAD_TO_ICEBERG_NAV_ITEM,
   ...PAGE_NAV_ITEMS,
   ...ADMIN_NAV_ITEMS,
-  DATA_SOURCES_NAV_ITEM,
+  DATA_CATALOG_NAV_ITEM,
 ];
 
 const routedNavItems = () => BASE_ROUTED_NAV_ITEMS;
@@ -168,14 +168,14 @@ const workflowItems = (sectionId, excludedLabels = new Set()) => (
         : title === CHANGE_DATA_CAPTURE_LABEL
           ? CHANGE_DATA_CAPTURE_PAGE_ID
         : title === BATCH_FILE_LOADING_LABEL
-        ? BRONZE_DATA_LOAD_PAGE_ID
+          ? BRONZE_DATA_LOAD_PAGE_ID
         : title === DATA_PROCESSING_LABEL
           ? SILVER_PROCESS_PAGE_ID
+        : title === DATA_CATALOG_LABEL
+          ? DATA_CATALOG_PAGE_ID
           : undefined,
       actionId: title === MACHINE_LEARNING_MODELS_LABEL
         ? 'adb-oml'
-        : title === DATA_CATALOG_LABEL
-          ? 'adb-data-studio-overview'
         : undefined,
     })) || []
 );
@@ -188,8 +188,6 @@ function aiLakehouseToolNavItems() {
     id: 'ai-lakehouse-tools-oracle-machine-learning',
     label: ORACLE_MACHINE_LEARNING_LABEL,
   }));
-
-  items.push(DATA_SOURCES_NAV_ITEM);
 
   return items.concat(AI_LAKEHOUSE_TOOL_LINKS.map((item) => ({
     ...item,
@@ -274,7 +272,7 @@ const BASE_PAGES = {
   [SILVER_PROCESS_PAGE_ID]: SilverProcessGuide,
   [ICEBERG_CATALOG_SERVER_PAGE_ID]: IcebergCatalogServerGuide,
   [LOAD_TO_ICEBERG_PAGE_ID]: LoadToIcebergGuide,
-  [DATA_SOURCES_PAGE_ID]: DataSources,
+  [DATA_CATALOG_PAGE_ID]: DataSources,
 };
 
 function resolveInitialPage(pages = BASE_PAGES) {
@@ -855,7 +853,7 @@ export default function App() {
                               genAi: genAiStatus,
                             },
                           }
-                        : activePage === BRONZE_DATA_LOAD_PAGE_ID
+                        : activePage === BRONZE_DATA_LOAD_PAGE_ID || activePage === DATA_CATALOG_PAGE_ID
                           ? {
                             dataStudioUrl: dataLoadingUrl,
                             hasLakehouseConnection: Boolean(activeLakehouseConnection && dataLoadingUrl),

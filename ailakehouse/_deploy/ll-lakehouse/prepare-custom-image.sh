@@ -15,12 +15,15 @@ fi
 
 WALLET_DIR="${INGESTION_DIR}/wallet"
 ADB_LOAD_MARKER="${INGESTION_DIR}/.adb_load_done"
+AI_DATA_CATALOG_MARKER="${INGESTION_DIR}/.ai_data_catalog_done"
+AI_DATA_CATALOG_STORAGE_MARKER="${INGESTION_DIR}/.ai_data_catalog_storage_registered"
 OCI_WALLET_REQUIRED_MARKER="${INGESTION_DIR}/.oci_wallet_required"
 COMPOSE_ENV_FILE="${COMPOSE_ENV_FILE:-${INGESTION_DIR}/.env}"
 COMPOSE_FILE="${COMPOSE_FILE:-${INGESTION_DIR}/compose.yml}"
 HOME_OCI_DIR="${HOME_OCI_DIR:-${OPC_HOME}/.oci}"
 INGESTION_OCI_DIR="${INGESTION_OCI_DIR:-${INGESTION_DIR}/.oci}"
 GOLDENGATE_CERT_DIR="${GOLDENGATE_CERT_DIR:-${INGESTION_DIR}/cdc/goldengate/cert}"
+SOURCE_TLS_DIR="${SOURCE_TLS_DIR:-${INGESTION_DIR}/source-tls}"
 APPLICATION_LOG_DIR="${APPLICATION_LOG_DIR:-${INGESTION_DIR}/logs}"
 INSTALL_LOG="${INSTALL_LOG:-${OPC_HOME}/inst.log}"
 PODMAN_AUTH_FILE="${PODMAN_AUTH_FILE:-${OPC_HOME}/.config/containers/auth.json}"
@@ -30,6 +33,7 @@ PODMAN_COMPOSE_BIN="${PODMAN_COMPOSE_BIN:-}"
 SYSTEMCTL_BIN="${SYSTEMCTL_BIN:-}"
 USER_PODMAN_SERVICE="${USER_PODMAN_SERVICE:-user-podman.service}"
 PG_ICEBERG_CONNECTION_SERVICE="${PG_ICEBERG_CONNECTION_SERVICE:-pg-iceberg-connection.service}"
+PG_AI_DATA_CATALOG_SERVICE="${PG_AI_DATA_CATALOG_SERVICE:-pg-ai-data-catalog.service}"
 ICEBERG_SEED_SERVICE="${ICEBERG_SEED_SERVICE:-iceberg-seed.service}"
 COMPOSE_PROJECT=""
 PRESERVED_OFFLINE_VOLUME_KEYS=(
@@ -308,7 +312,7 @@ stop_image_capture_services() {
     return 0
   fi
 
-  for service in "${ICEBERG_SEED_SERVICE}" "${PG_ICEBERG_CONNECTION_SERVICE}" "${USER_PODMAN_SERVICE}"; do
+  for service in "${ICEBERG_SEED_SERVICE}" "${PG_ICEBERG_CONNECTION_SERVICE}" "${PG_AI_DATA_CATALOG_SERVICE}" "${USER_PODMAN_SERVICE}"; do
     if ! "${SYSTEMCTL_BIN}" --user cat "${service}" >/dev/null 2>&1; then
       echo "No ${service} user service found; continuing."
       continue
@@ -552,6 +556,7 @@ remove_runtime_credentials() {
   remove_sensitive_directory "${HOME_OCI_DIR}" "home OCI credential"
   remove_sensitive_directory "${INGESTION_OCI_DIR}" "ingestion OCI credential"
   remove_sensitive_directory "${GOLDENGATE_CERT_DIR}" "generated GoldenGate TLS credential"
+  remove_sensitive_directory "${SOURCE_TLS_DIR}" "source database TLS credential"
   remove_sensitive_directory "${APPLICATION_LOG_DIR}" "application log"
 }
 
@@ -585,6 +590,20 @@ if [[ -e "${ADB_LOAD_MARKER}" ]]; then
   echo "Removed ${ADB_LOAD_MARKER}"
 else
   echo "Not present: ${ADB_LOAD_MARKER}"
+fi
+
+if [[ -e "${AI_DATA_CATALOG_MARKER}" ]]; then
+  rm -f "${AI_DATA_CATALOG_MARKER}"
+  echo "Removed ${AI_DATA_CATALOG_MARKER}"
+else
+  echo "Not present: ${AI_DATA_CATALOG_MARKER}"
+fi
+
+if [[ -e "${AI_DATA_CATALOG_STORAGE_MARKER}" ]]; then
+  rm -f "${AI_DATA_CATALOG_STORAGE_MARKER}"
+  echo "Removed ${AI_DATA_CATALOG_STORAGE_MARKER}"
+else
+  echo "Not present: ${AI_DATA_CATALOG_STORAGE_MARKER}"
 fi
 
 remove_configured_wallet_archive

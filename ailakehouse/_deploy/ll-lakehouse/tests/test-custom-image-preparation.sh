@@ -187,6 +187,8 @@ setup_case() {
   touch "${case_dir}/ingestion/wallet/tnsnames.ora"
   touch "${case_dir}/ingestion/wallet/ewallet.p12"
   touch "${case_dir}/ingestion/.adb_load_done"
+  touch "${case_dir}/ingestion/.ai_data_catalog_done"
+  touch "${case_dir}/ingestion/.ai_data_catalog_storage_registered"
   touch "${case_dir}/ingestion/keep-me"
   printf 'private-key\n' > "${case_dir}/ingestion/.oci/oci_api_key.pem"
   printf 'private-key\n' > "${case_dir}/home/.oci/oci_api_key.pem"
@@ -332,6 +334,8 @@ run_prepare "${prepare_dir}" > "${prepare_dir}/prepare.log"
 
 assert_dir_empty "${prepare_dir}/ingestion/wallet"
 assert_file_absent "${prepare_dir}/ingestion/.adb_load_done"
+assert_file_absent "${prepare_dir}/ingestion/.ai_data_catalog_done"
+assert_file_absent "${prepare_dir}/ingestion/.ai_data_catalog_storage_registered"
 assert_file_exists "${prepare_dir}/ingestion/.oci_wallet_required"
 assert_file_exists "${prepare_dir}/ingestion/keep-me"
 assert_file_absent "${prepare_dir}/ingestion/.env"
@@ -372,7 +376,7 @@ assert_file_absent "${prepare_dir}/podman-state/mounts/ingestion_postgres-source
 assert_file_absent "${prepare_dir}/podman-state/mounts/ingestion_loyalty-mysql-data"
 assert_file_absent "${prepare_dir}/podman-state/mounts/ingestion_mongodb-catalog-data"
 assert_file_absent "${prepare_dir}/podman-state/mounts/anonymous-runtime-volume"
-for service in iceberg-seed.service pg-iceberg-connection.service user-podman.service; do
+for service in iceberg-seed.service pg-iceberg-connection.service pg-ai-data-catalog.service user-podman.service; do
   assert_file_exists "${prepare_dir}/podman-state/${service}-stopped"
   grep -q -- "stop ${service}" "${prepare_dir}/systemctl-args.log" \
     || fail "Image preparation did not stop ${service}"

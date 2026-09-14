@@ -370,6 +370,10 @@ export const api = {
   dataSources: {
     list: () => apiFetch('/data-sources'),
   },
+  sourceCatalogs: {
+    create: () => apiFetch('/source-catalogs', { method: 'POST' }),
+    replace: () => apiFetch('/source-catalogs?replace=true', { method: 'POST' }),
+  },
   awsGlue: {
     configure: ({ accessKeyId, secretAccessKey, region }) =>
       apiFetch('/aws-glue', {

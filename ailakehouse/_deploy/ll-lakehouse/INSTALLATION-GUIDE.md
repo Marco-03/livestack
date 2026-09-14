@@ -51,7 +51,7 @@ are not required for normal PeakGear web-app usage.
 | TCP | 19080 | Non-TLS OSA endpoint; prefer 8085 instead |
 | TCP | 1521, 1522, 8181, 11434, 3306 | Local databases, ORDS, Ollama, and OSA MySQL; keep private |
 | TCP | 8503, 8504 | Loyalty MySQL and PostgreSQL sources; keep private until the federation phase |
-| TCP | 27017 | Optional MongoDB catalog source in images built with `AIHUB=true`; keep private until the federation phase |
+| TCP | 8888 | Optional MongoDB catalog source in images built with `AIHUB=true`; keep private until the federation phase |
 
 
 

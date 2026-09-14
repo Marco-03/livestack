@@ -105,7 +105,9 @@ require_entry "ingestion/iceberg-seeder/Dockerfile"
 require_entry "ingestion/iceberg-seeder/seed_product_master.py"
 require_entry "init/create-pg-iceberg-connection.sh"
 require_entry "init/create-iceberg-adb-external-table.sh"
+require_entry "init/configure-ai-data-catalog.sh"
 require_entry "init/adb-wallet.sh"
+require_entry "init/pg-ai-data-catalog.service"
 require_entry "init/pg-iceberg-connection.service"
 require_entry "init/iceberg-seed.service"
 require_entry "prepare-custom-image.sh"
@@ -113,6 +115,7 @@ require_entry "scripts/build-rc-zip.sh"
 require_entry "scripts/verify-rc-zip.sh"
 require_entry "tests/test-custom-image-preparation.sh"
 require_entry "tests/test-source-database-compose.sh"
+require_entry "tests/test-ai-data-catalog.sh"
 require_entry "tests/test-aws-glue-catalog.sh"
 require_entry "tests/test-data-transforms-connection-provisioning.sh"
 require_entry "tests/test-wallet-hardening.sh"
@@ -151,12 +154,16 @@ require_text "ingestion/compose.yml" 'ICEBERG_SEED_FILE_IO: ${ICEBERG_SEED_FILE_
 require_text "ingestion/compose.yml" 'ICEBERG_SEED_ADB_METADATA: ${ICEBERG_SEED_ADB_METADATA:-true}'
 require_text "inst.sh" "pg-iceberg-connection.service"
 require_text "inst.sh" "iceberg-seed.service"
+require_text "inst.sh" "pg-ai-data-catalog.service"
+require_text "inst.sh" "configure-ai-data-catalog.sh"
 require_text "inst.sh" "create-iceberg-adb-external-table.sh"
 require_text "inst.sh" "/usr/local/bin/podman-compose -f compose.yml --profile seed build iceberg-seeder"
 require_text "inst.sh" "sudo pip3.11 install oracledb dotenv requests"
 require_text "inst.sh" "OCI metadata key build_archive_url"
 reject_text "inst.sh" 'BUILD_ARCHIVE_URL="https://'
 require_text "prepare-custom-image.sh" "Cleared generated wallet state"
+require_text "prepare-custom-image.sh" ".ai_data_catalog_done"
+require_text "prepare-custom-image.sh" ".ai_data_catalog_storage_registered"
 require_text "prepare-custom-image.sh" "remove_configured_wallet_archive"
 require_text "prepare-custom-image.sh" "remove_home_wallet_archives"
 require_text "prepare-custom-image.sh" ".oci_wallet_required"
@@ -188,6 +195,8 @@ reject_text "inst.sh" '--password "${CON_TOK}"'
 reject_text "inst.sh" '-p "${CON_TOK}"'
 require_text "init/variable.sh" 'export_metadata_or_default "GRAVITINO_REST_PORT" "gravitino_rest_port" "1525"'
 require_text "init/variable.sh" 'export_metadata_or_default "DATA_TRANSFORMS_ADB_AUTO_CONFIGURE"'
+require_text "init/variable.sh" 'export_metadata_or_default "AI_DATA_CATALOG_ENABLED"'
+require_text "init/variable.sh" 'export_metadata_or_default "AI_DATA_CATALOG_WAREHOUSE"'
 require_text "init/variable.sh" 'export_metadata_or_default "DATA_TRANSFORMS_ADB_USERNAME"'
 require_text "init/variable.sh" 'export_metadata_or_default "ICEBERG_SEED_NAMESPACE" "iceberg_seed_namespace"'
 require_text "init/variable.sh" 'export_metadata_or_default "ICEBERG_ADB_EXTERNAL_TABLE" "iceberg_adb_external_table"'
@@ -196,6 +205,12 @@ require_text "init/setenv.sh" 'echo "GRAVITINO_JDBC_SERVICE_NAME=${DBNAME}_high"
 require_text "init/setenv.sh" 'echo "GRAVITINO_WAREHOUSE=s3a://${BUCKET_NAME}/${GRAVITINO_OBJECT_STORAGE_PREFIX:-iceberg}"'
 require_text "init/setenv.sh" 'echo "DATA_TRANSFORMS_ADB_CONNECTION_NAME=${DATA_TRANSFORMS_ADB_CONNECTION_NAME:-${DBNAME:-}}"'
 require_text "init/setenv.sh" 'echo "DATA_TRANSFORMS_ADB_USERNAME=${DATA_TRANSFORMS_ADB_USERNAME:-PG}"'
+require_text "init/setenv.sh" 'echo "AI_DATA_CATALOG_ENABLED=${AI_DATA_CATALOG_ENABLED:-false}"'
+require_text "init/setenv.sh" 'echo "AI_DATA_CATALOG_WAREHOUSE=${AI_DATA_CATALOG_WAREHOUSE:-}"'
+require_text "init/configure-ai-data-catalog.sh" "DBMS_CATALOG.MOUNT_ICEBERG"
+require_text "init/configure-ai-data-catalog.sh" "ORACLE_AI_DATA_CATALOG.REGISTER_STORAGE_OCI"
+require_text "init/configure-ai-data-catalog.sh" "AI Data Catalog storage registration marker exists"
+require_text "init/pg-ai-data-catalog.service" "Before=user-podman.service"
 require_text "init/pg-iceberg-connection.service" "After=network-online.target adb-wallet.service adb-load.service user-podman.service"
 require_text "init/iceberg-seed.service" "--profile seed"
 require_text "init/iceberg-seed.service" "--profile seed run --rm iceberg-seeder"
@@ -239,13 +254,37 @@ require_text "ingestion/compose.yml" '"${POSTGRES_SOURCE_PORT:-8504}:5432"'
 require_text "ingestion/compose.yml" "hostname: loyalty-mysql"
 require_text "ingestion/compose.yml" '"${LOYALTY_MYSQL_PORT:-8503}:3306"'
 require_text "ingestion/compose.yml" "hostname: mongodb-catalog"
-require_text "ingestion/compose.yml" '"${MONGODB_CATALOG_PORT:-27017}:27017"'
+require_text "ingestion/compose.yml" '"${MONGODB_CATALOG_PORT:-8888}:27017"'
+require_text "ingestion/compose.source-tls.yml" "ssl=on"
+require_text "ingestion/compose.source-tls.yml" "--tlsMode"
 require_text "init/setenv.sh" 'POSTGRES_SOURCE_PORT=${POSTGRES_SOURCE_PORT:-8504}'
+require_text "init/setenv.sh" 'POSTGRES_CATALOG_PORT=${POSTGRES_CATALOG_PORT:-5432}'
 require_text "init/setenv.sh" 'LOYALTY_MYSQL_PORT=${LOYALTY_MYSQL_PORT:-8503}'
-require_text "init/setenv.sh" 'MONGODB_CATALOG_PORT=${MONGODB_CATALOG_PORT:-27017}'
-require_text "init/setenv.sh" 'SOURCE_PUBLIC_HOST=${SOURCE_PUBLIC_HOST:-${PUBLIC_IP}}'
-require_text "ingestion/frontend/src/pages/DataSources.jsx" "Data Sources"
-require_text "ingestion/backend/routes/dataSources.js" 'postgresql://${host}'
+require_text "init/setenv.sh" 'LOYALTY_MYSQL_CATALOG_PORT=${LOYALTY_MYSQL_CATALOG_PORT:-3306}'
+require_text "init/setenv.sh" 'MONGODB_CATALOG_PORT=${MONGODB_CATALOG_PORT:-8888}'
+require_text "init/setenv.sh" 'MONGODB_CATALOG_LINK_PORT=${MONGODB_CATALOG_LINK_PORT:-27017}'
+require_text "init/setenv.sh" 'SOURCE_PUBLIC_HOST=${SOURCE_PUBLIC_HOST:-${PUBLIC_ENDPOINT_HOST}}'
+require_text "init/setenv.sh" 'FRONTEND_URL=${FRONTEND_URL:-https://${PUBLIC_ENDPOINT_HOST}:8505}'
+require_text "init/setenv.sh" 'PUBLIC_HOST=${PUBLIC_ENDPOINT_HOST}'
+require_text "init/setenv.sh" 'GGSA_PUBLIC_HOST=${GGSA_PUBLIC_HOST:-${PUBLIC_ENDPOINT_HOST}}'
+reject_text "init/adb-load.sh" 'DBMS_CLOUD_ADMIN.CREATE_DATABASE_LINK('
+reject_text "init/adb-load.sh" 'DBMS_CATALOG.MOUNT_DB_LINK('
+require_text "ingestion/backend/routes/sourceCatalogs.js" 'DBMS_CLOUD_ADMIN.CREATE_DATABASE_LINK('
+require_text "ingestion/backend/routes/sourceCatalogs.js" 'DBMS_CATALOG.MOUNT_DB_LINK('
+require_text "ingestion/backend/routes/sourceCatalogs.js" "port('LOYALTY_MYSQL_CATALOG_PORT', 3306)"
+require_text "ingestion/backend/routes/sourceCatalogs.js" 'PG_LOYALTY_MYSQL_CAT'
+reject_text "ingestion/backend/routes/sourceCatalogs.js" 'PG_SPORTSWEAR_CAT'
+reject_text "ingestion/backend/routes/sourceCatalogs.js" 'PG_MONGODB_CATALOG_CAT'
+reject_text "ingestion/backend/routes/sourceCatalogs.js" 'PG_NETSUITE_CAT'
+require_text "ingestion/db/data/create_user_pg.sql" 'GRANT EXECUTE ON DBMS_CLOUD TO "PG";'
+require_text "ingestion/db/data/create_user_pg.sql" 'GRANT EXECUTE ON DBMS_CLOUD_ADMIN TO "PG";'
+require_text "ingestion/db/data/create_user_pg.sql" 'GRANT CREATE DATABASE LINK TO "PG";'
+require_text "ingestion/frontend/src/pages/DataSources.jsx" "Data Catalog"
+require_text "ingestion/frontend/src/pages/DataSources.jsx" "Open Data Studio"
+require_text "ingestion/backend/routes/dataSources.js" 'mysql://${host}'
+reject_text "ingestion/backend/routes/dataSources.js" 'postgresql://${host}'
+reject_text "ingestion/backend/routes/dataSources.js" 'mongodb://${host}'
+reject_text "ingestion/backend/routes/dataSources.js" 'oracle://${host}'
 require_text "ingestion/backend/routes/awsGlue.js" "DBMS_CATALOG.MOUNT_DATA_CATALOG"
 require_text "ingestion/backend/routes/awsGlue.js" "data_catalog_type       => 'AWS_GLUE'"
 require_text "ingestion/backend/lib/customerCdcSetup.js" 'const STUDIO_TOKEN_CACHE_TTL_MS = 50 * 60 * 1000'
@@ -266,6 +305,7 @@ if [[ "${RUN_BUILD}" -eq 1 ]]; then
   unzip -q "${ZIP_PATH}" -d "${tmp_dir}"
   bash "${tmp_dir}/tests/test-custom-image-preparation.sh"
   bash "${tmp_dir}/tests/test-source-database-compose.sh"
+  bash "${tmp_dir}/tests/test-public-endpoint-urls.sh"
   bash "${tmp_dir}/tests/test-aws-glue-catalog.sh"
   bash "${tmp_dir}/tests/test-data-transforms-connection-provisioning.sh"
   bash "${tmp_dir}/tests/test-wallet-hardening.sh"

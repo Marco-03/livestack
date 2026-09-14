@@ -38,6 +38,12 @@ if [[ ${#PUBLIC_IP} -le 5 || ${PUBLIC_IP} =~ '<html>' ]]; then
  export PUBLIC_IP="127.0.0.1"
 fi
 
+# The VM is reached through the public load balancer. Keep the instance IP for
+# local/runtime fallbacks, but use the Terraform-provided host for browser URLs.
+export PUBLIC_HOST="$(oci_metadata_value public_host || true)"
+if [[ -z "${PUBLIC_HOST}" ]]; then
+  export PUBLIC_HOST="${PUBLIC_IP}"
+fi
 
 export vncpwd=$(curl -s -H "Authorization: Bearer Oracle" -L http://169.254.169.254/opc/v2/instance/metadata/vncpwd)
 
@@ -255,6 +261,11 @@ export_metadata_or_default "GRAVITINO_S3_REGION" "gravitino_s3_region" "${GRAVIT
 export_metadata_or_default "GRAVITINO_S3_ACCESS_KEY_ID" "gravitino_s3_access_key_id" "${GRAVITINO_S3_ACCESS_KEY_ID:-${GRAVITINO_S3_ACCESS_KEY:-}}"
 export_metadata_or_default "GRAVITINO_S3_SECRET_ACCESS_KEY" "gravitino_s3_secret_access_key" "${GRAVITINO_S3_SECRET_ACCESS_KEY:-${GRAVITINO_S3_SECRET_KEY:-}}"
 export_metadata_or_default "GRAVITINO_S3_PATH_STYLE_ACCESS" "gravitino_s3_path_style_access" "${GRAVITINO_S3_PATH_STYLE_ACCESS:-true}"
+export_metadata_or_default "AI_DATA_CATALOG_ENABLED" "ai_data_catalog_enabled" "${AI_DATA_CATALOG_ENABLED:-false}"
+export_metadata_or_default "AI_DATA_CATALOG_URL" "ai_data_catalog_url" "${AI_DATA_CATALOG_URL:-}"
+export_metadata_or_default "AI_DATA_CATALOG_WAREHOUSE" "ai_data_catalog_warehouse" "${AI_DATA_CATALOG_WAREHOUSE:-}"
+export_metadata_or_default "AI_DATA_CATALOG_S3_ENDPOINT" "ai_data_catalog_s3_endpoint" "${AI_DATA_CATALOG_S3_ENDPOINT:-}"
+export_metadata_or_default "AI_DATA_CATALOG_REGISTER_STORAGE" "ai_data_catalog_register_storage" "${AI_DATA_CATALOG_REGISTER_STORAGE:-false}"
 export_metadata_or_default "DATA_TRANSFORMS_ADB_AUTO_CONFIGURE" "data_transforms_adb_auto_configure" "${DATA_TRANSFORMS_ADB_AUTO_CONFIGURE:-true}"
 export_metadata_or_default "DATA_TRANSFORMS_ADB_CONNECTION_NAME" "data_transforms_adb_connection_name" "${DATA_TRANSFORMS_ADB_CONNECTION_NAME:-${DBNAME:-}}"
 export_metadata_or_default "DATA_TRANSFORMS_ADB_USERNAME" "data_transforms_adb_username" "${DATA_TRANSFORMS_ADB_USERNAME:-PG}"
@@ -263,6 +274,7 @@ export_metadata_or_default "DATA_TRANSFORMS_ICEBERG_CONNECTION_NAME" "data_trans
 export_metadata_or_default "DATA_TRANSFORMS_ICEBERG_CATALOG_NAME" "data_transforms_iceberg_catalog_name" "${DATA_TRANSFORMS_ICEBERG_CATALOG_NAME:-default}"
 export_metadata_or_default "DATA_TRANSFORMS_ICEBERG_CATALOG_PROVIDER" "data_transforms_iceberg_catalog_provider" "${DATA_TRANSFORMS_ICEBERG_CATALOG_PROVIDER:-genericrestcatalog}"
 export_metadata_or_default "DATA_TRANSFORMS_ICEBERG_REST_PATH" "data_transforms_iceberg_rest_path" "${DATA_TRANSFORMS_ICEBERG_REST_PATH:-/iceberg}"
+export_metadata_or_default "DATA_TRANSFORMS_ICEBERG_PUBLIC_HOST" "data_transforms_iceberg_public_host" "${PUBLIC_HOST:-${PUBLIC_IP}}"
 export_metadata_or_default "DATA_TRANSFORMS_BASE_URL" "data_transforms_base_url" "${DATA_TRANSFORMS_BASE_URL:-}"
 export_metadata_or_default "DATA_TRANSFORMS_ICEBERG_REST_URL" "data_transforms_iceberg_rest_url" "${DATA_TRANSFORMS_ICEBERG_REST_URL:-}"
 export_metadata_or_default "DATA_TRANSFORMS_AGENT_NAME" "data_transforms_agent_name" "${DATA_TRANSFORMS_AGENT_NAME:-}"
