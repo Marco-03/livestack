@@ -133,9 +133,6 @@ export async function apiLakehouseAuto() {
 }
 
 export const api = {
-  icebergCatalog: {
-    config: () => apiFetch('/iceberg-catalog/config'),
-  },
   dashboard: {
     summary: () => apiFetch('/dashboard/summary'),
     trending: (limit = 10, search = '', brand = '') => {

@@ -249,8 +249,8 @@ DATA_TRANSFORMS_ICEBERG_CONNECTION_NAME=pg-iceberg
 
 `PG_AI_PROFILE_AUTO_SETUP` may be absent. If absent, it defaults to `true`.
 `DATA_TRANSFORMS_ICEBERG_REST_URL` and `DATA_TRANSFORMS_BASE_URL` may be
-absent when they can be derived from the load-balancer FQDN (when provided) or
-the VM public IP, along with ADB metadata.
+absent when they can be derived from the VM public IP and ADB metadata. The
+Iceberg REST service uses the VM's direct HTTP port, not the load-balancer FQDN.
 
 Then check the app status:
 

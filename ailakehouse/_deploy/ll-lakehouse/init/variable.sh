@@ -274,7 +274,9 @@ export_metadata_or_default "DATA_TRANSFORMS_ICEBERG_CONNECTION_NAME" "data_trans
 export_metadata_or_default "DATA_TRANSFORMS_ICEBERG_CATALOG_NAME" "data_transforms_iceberg_catalog_name" "${DATA_TRANSFORMS_ICEBERG_CATALOG_NAME:-default}"
 export_metadata_or_default "DATA_TRANSFORMS_ICEBERG_CATALOG_PROVIDER" "data_transforms_iceberg_catalog_provider" "${DATA_TRANSFORMS_ICEBERG_CATALOG_PROVIDER:-genericrestcatalog}"
 export_metadata_or_default "DATA_TRANSFORMS_ICEBERG_REST_PATH" "data_transforms_iceberg_rest_path" "${DATA_TRANSFORMS_ICEBERG_REST_PATH:-/iceberg}"
-export_metadata_or_default "DATA_TRANSFORMS_ICEBERG_PUBLIC_HOST" "data_transforms_iceberg_public_host" "${PUBLIC_HOST:-${PUBLIC_IP}}"
+# Data Transforms connects directly to Gravitino over HTTP. Do not use the
+# HTTPS load-balancer hostname here because it does not expose the REST port.
+export_metadata_or_default "DATA_TRANSFORMS_ICEBERG_PUBLIC_HOST" "data_transforms_iceberg_public_host" "${PUBLIC_IP}"
 export_metadata_or_default "DATA_TRANSFORMS_BASE_URL" "data_transforms_base_url" "${DATA_TRANSFORMS_BASE_URL:-}"
 export_metadata_or_default "DATA_TRANSFORMS_ICEBERG_REST_URL" "data_transforms_iceberg_rest_url" "${DATA_TRANSFORMS_ICEBERG_REST_URL:-}"
 export_metadata_or_default "DATA_TRANSFORMS_AGENT_NAME" "data_transforms_agent_name" "${DATA_TRANSFORMS_AGENT_NAME:-}"

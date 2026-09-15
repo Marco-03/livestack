@@ -220,7 +220,10 @@ PY
 derive_public_host() {
   local value
 
-  for value in "${DATA_TRANSFORMS_ICEBERG_PUBLIC_HOST:-}" "${PUBLIC_HOST:-}" "${PUBLIC_IP:-}" "${public_ip:-}"; do
+  # Gravitino is published directly on the VM's HTTP REST port, which the
+  # HTTPS load balancer does not expose. Prefer the VM public IP even when
+  # Terraform supplies a load-balancer FQDN for browser-facing services.
+  for value in "${PUBLIC_IP:-}" "${public_ip:-}" "${DATA_TRANSFORMS_ICEBERG_PUBLIC_HOST:-}" "${PUBLIC_HOST:-}"; do
     if [[ -n "${value}" && ! "${value}" =~ '<html>' && "${value}" != "127.0.0.1" ]]; then
       printf '%s' "${value}"
       return 0

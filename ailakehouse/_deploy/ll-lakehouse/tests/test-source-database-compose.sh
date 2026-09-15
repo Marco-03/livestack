@@ -104,7 +104,7 @@ require_service_text "mongodb-catalog" "mongosh --quiet"
 require_service_text "mongodb-catalog" '--password=\"$${MONGO_INITDB_ROOT_PASSWORD}\"'
 
 require_service_text "ords" 'ORACLE_PWD: ${ORACLE_PWD:-oracle}'
-require_service_text "ords" 'ORACLE_USER_PWD: ${ORACLE_USER_PWD:-oracle}'
+require_service_text "ords" 'ORACLE_USER_PWD: ${ORACLE_PWD:-oracle}'
 
 for seed_file in \
   "${PROJECT_ROOT}/ingestion/source-databases/postgres/01-demo-products.sql" \
@@ -140,7 +140,7 @@ for expected in \
   'FRONTEND_URL=${FRONTEND_URL:-https://${PUBLIC_ENDPOINT_HOST}:8505}' \
   'OSA_PUBLIC_URL=${OSA_PUBLIC_URL:-https://${PUBLIC_ENDPOINT_HOST}:8085/osa/index.html}' \
   'GOLDENGATE_PUBLIC_URL=${GOLDENGATE_PUBLIC_URL:-https://${PUBLIC_ENDPOINT_HOST}:8501}' \
-  'DATA_TRANSFORMS_ICEBERG_PUBLIC_HOST=${DATA_TRANSFORMS_ICEBERG_PUBLIC_HOST:-${PUBLIC_ENDPOINT_HOST}}' \
+  'DATA_TRANSFORMS_ICEBERG_PUBLIC_HOST=${DATA_TRANSFORMS_ICEBERG_PUBLIC_HOST:-${PUBLIC_IP}}' \
   'PUBLIC_HOST=${PUBLIC_ENDPOINT_HOST}' \
   'GGSA_PUBLIC_HOST=${GGSA_PUBLIC_HOST:-${PUBLIC_ENDPOINT_HOST}}' \
   'POSTGRES_SOURCE_USER=${POSTGRES_SOURCE_USER:-PG}' \
@@ -174,7 +174,7 @@ done
 require_text "${VARIABLE_FILE}" '1|true|yes|on) export AIHUB=true ;'
 require_text "${VARIABLE_FILE}" 'AIHUB_IMAGE_DEFAULT_FILE="${AIHUB_IMAGE_DEFAULT_FILE:-/home/opc/init/aihub-image-default.env}"'
 require_text "${VARIABLE_FILE}" 'source "${AIHUB_IMAGE_DEFAULT_FILE}"'
-require_text "${VARIABLE_FILE}" 'export_metadata_or_default "DATA_TRANSFORMS_ICEBERG_PUBLIC_HOST" "data_transforms_iceberg_public_host" "${PUBLIC_HOST:-${PUBLIC_IP}}"'
+require_text "${VARIABLE_FILE}" 'export_metadata_or_default "DATA_TRANSFORMS_ICEBERG_PUBLIC_HOST" "data_transforms_iceberg_public_host" "${PUBLIC_IP}"'
 if grep -qF -- '"AIHUB" "aihub"' "${VARIABLE_FILE}"; then
   fail "AIHUB must be selected by the custom image, not Terraform metadata"
 fi
@@ -192,7 +192,6 @@ reject_text "${SETENV_FILE}" 'SOURCE_DATABASE_TLS_CERT_PEM_B64'
 reject_text "${SETENV_FILE}" 'SOURCE_DATABASE_TLS_KEY_PEM_B64'
 reject_text "${SETENV_FILE}" 'SOURCE_DATABASE_TLS_CA_PEM_B64'
 reject_text "${VARIABLE_FILE}" 'source_database_tls_'
-require_text "${PROJECT_ROOT}/ingestion/backend/routes/icebergCatalog.js" 'environment.SOURCE_PUBLIC_HOST,'
 require_text "${PROJECT_ROOT}/ingestion/backend/routes/streamingAnalytics.js" 'process.env.OSA_PUBLIC_URL || process.env.GGSA_OSA_PUBLIC_URL'
 require_text "${PROJECT_ROOT}/ingestion/backend/lib/customerCdcSetup.js" 'process.env.GOLDENGATE_PUBLIC_URL || '\''https://localhost:8501'\'''
 
