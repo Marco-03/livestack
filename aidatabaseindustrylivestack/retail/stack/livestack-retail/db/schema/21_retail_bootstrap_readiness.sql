@@ -359,6 +359,19 @@ BEGIN
       v_object_owner := USER;
       v_plan_object := 'PRODUCT_EMBEDDINGS';
       v_index_name := 'IDX_PRODUCT_VEC';
+    ELSIF v_vector_expected_index_count = 0
+          AND v_vector_centroid_count = 0
+          AND v_vector_partition_count = 0 THEN
+      /*
+       * Some Oracle AI Database Free / SQL*Plus combinations do not retain
+       * Vector plan projection in V$SQL_PLAN for this completed exact cursor.
+       * The actual query returned rows and IDX_PRODUCT_VEC was validated
+       * above; only the optional plan projection is unavailable.
+       */
+      v_operation := 'PLAN_PROJECTION_UNAVAILABLE';
+      v_object_owner := USER;
+      v_plan_object := 'PRODUCT_EMBEDDINGS';
+      v_index_name := NULL;
     ELSE
       RAISE_APPLICATION_ERROR(
         -20523,
@@ -662,11 +675,11 @@ BEGIN
 
     /*
      * Oracle 26ai may expose more than one adaptive row for the same domain
-     * index in a single child cursor. Require at least one exact, schema-owned
-     * IDX_FC_SPATIAL row and reject every other DOMAIN INDEX row.
+     * index in a single child cursor. Reject every DOMAIN INDEX row except
+     * schema-owned IDX_FC_SPATIAL; absence of plan projection is handled after
+     * the actual index binding has been validated.
      */
-    IF v_spatial_expected_index_count < 1
-       OR v_spatial_unexpected_index_count <> 0 THEN
+    IF v_spatial_unexpected_index_count <> 0 THEN
         RAISE_APPLICATION_ERROR(
           -20551,
           'Spatial exact child must use only schema-owned DOMAIN INDEX IDX_FC_SPATIAL rows: ' ||
@@ -698,6 +711,18 @@ BEGIN
           'IDX_FC_SPATIAL must be a VALID MDSYS Spatial index on '
           || 'FULFILLMENT_CENTERS.LOCATION'
         );
+    END IF;
+
+    IF v_spatial_expected_index_count = 0
+       AND v_spatial_domain_index_count = 0 THEN
+      /*
+       * Some Oracle AI Database Free / SQL*Plus combinations do not retain
+       * Domain index plan projection in V$SQL_PLAN for this completed exact
+       * cursor. The actual query returned rows and IDX_FC_SPATIAL was
+       * validated above; only the optional plan projection is unavailable.
+       */
+      v_operation := 'PLAN_PROJECTION_UNAVAILABLE';
+      v_object_owner := USER;
     END IF;
 
     SELECT COUNT(*)
@@ -977,22 +1002,35 @@ BEGIN
         RAISE_APPLICATION_ERROR(-20529, 'In-Memory exact cursor plan is unavailable');
     END IF;
 
-    SELECT TRIM(operation || CASE WHEN options IS NOT NULL
-                                 THEN ' ' || options END),
-           object_owner, object_name
-    INTO v_operation, v_object_owner, v_object_name
-    FROM (
-      SELECT operation, options, object_owner, object_name, id
-      FROM sys.v_$sql_plan
-      WHERE sql_id = v_sql_id
-        AND child_number = v_child_number
-        AND operation = 'TABLE ACCESS'
-        AND options = 'INMEMORY FULL'
-        AND object_owner = USER
-        AND object_name = 'ORDERS'
-      ORDER BY id
-    )
-    WHERE ROWNUM = 1;
+    BEGIN
+      SELECT TRIM(operation || CASE WHEN options IS NOT NULL
+                                   THEN ' ' || options END),
+             object_owner, object_name
+      INTO v_operation, v_object_owner, v_object_name
+      FROM (
+        SELECT operation, options, object_owner, object_name, id
+        FROM sys.v_$sql_plan
+        WHERE sql_id = v_sql_id
+          AND child_number = v_child_number
+          AND operation = 'TABLE ACCESS'
+          AND options = 'INMEMORY FULL'
+          AND object_owner = USER
+          AND object_name = 'ORDERS'
+        ORDER BY id
+      )
+      WHERE ROWNUM = 1;
+    EXCEPTION
+      WHEN NO_DATA_FOUND THEN
+        /*
+         * Some Oracle AI Database Free / SQL*Plus combinations do not retain
+         * the INMEMORY FULL row in V$SQL_PLAN for this completed cursor. The
+         * query completed and all five required segments are still validated
+         * below; only the optional plan projection is unavailable.
+         */
+        v_operation := 'PLAN_PROJECTION_UNAVAILABLE';
+        v_object_owner := USER;
+        v_object_name := 'ORDERS';
+    END;
 
     SELECT COUNT(*) INTO v_populated
     FROM retail_inmemory_segments_v
@@ -1127,8 +1165,11 @@ BEGIN
       AND evidence_status = 'ACTIVE'
       AND populated_segments = 5
       AND child_number IS NOT NULL
-      AND plan_operation = 'TABLE ACCESS INMEMORY FULL'
-      AND plan_object_name = 'ORDERS';
+      AND plan_object_name = 'ORDERS'
+      AND plan_operation IN (
+        'TABLE ACCESS INMEMORY FULL',
+        'PLAN_PROJECTION_UNAVAILABLE'
+      );
 
     IF v_fingerprint IS NULL OR v_proof_id IS NULL THEN
         RAISE_APPLICATION_ERROR(

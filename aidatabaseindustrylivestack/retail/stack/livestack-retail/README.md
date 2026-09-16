@@ -64,6 +64,7 @@ Stop while retaining Oracle data:
 | `ORDS_IMAGE` | Reviewed ORDS image | ORDS container retained in the immutable topology |
 | `OLLAMA_IMAGE` | Reviewed Ollama image | Existing deferred local-model container |
 | `ORACLE_USER` | `LIVESTACK` | Application schema |
+| `ORACLE_USER_PWD` | Demo-only ORDS database-user password | Required by current ORDS container images during initial installation |
 | `APP_SCHEMA_PASSWORD` | Required demo-only secret | Schema credential; do not distribute a production value |
 | `ORACLE_CONNECTION_STRING` | `db:1521/FREEPDB1` | App-to-database connection |
 | `CONN_STRING`, `DBHOST`, `DBSERVICENAME` | `db:1521/FREEPDB1`, `db`, `FREEPDB1` | ORDS database service settings |

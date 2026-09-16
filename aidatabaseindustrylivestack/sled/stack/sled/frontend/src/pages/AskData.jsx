@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { api } from '../utils/api';
-import { FeatureBadge, DiagramBox } from '../components/OracleInfoPanel';
+import { FeatureBadge, SqlBlock, DiagramBox } from '../components/OracleInfoPanel';
 import { RegisterOraclePanel } from '../context/OraclePanelContext';
 import { JetButton, JetInputText, JetProgressCircle, JetSelectSingle } from '../components/JetControls';
 import { SceneStoryPanel } from '../components/StateLocalGovernmentStory';
@@ -281,10 +281,11 @@ function GeneratedSqlDetails({ sql }) {
   );
 }
 
-function NarrativeAnswer({ msg, tone = 'teal' }) {
+function NarrativeAnswer({ msg, tone = 'teal', onFollowUp }) {
   const isChatMode = msg.mode === 'chat';
   const paragraphs = textParagraphs(msg.text);
   const findings = Array.isArray(msg.keyFindings) ? msg.keyFindings.filter(Boolean) : [];
+  const followUps = Array.isArray(msg.followUpQuestions) ? msg.followUpQuestions.filter(Boolean) : [];
   const warnings = Array.isArray(msg.warnings) ? msg.warnings.filter(Boolean) : [];
   const resultSummary = msg.resultSummary || '';
   const modeTitle = isChatMode ? 'Conversation reply' : 'Narrated operations brief';
@@ -330,6 +331,15 @@ function NarrativeAnswer({ msg, tone = 'teal' }) {
         </div>
       )}
 
+      {followUps.length > 0 && (
+        <div className="askdata-follow-ups" aria-label="Suggested follow-up questions">
+          {followUps.map((question, index) => (
+            <button type="button" key={index} className="askdata-follow-up-chip" onClick={() => onFollowUp(question)}>
+              {question}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -444,7 +454,7 @@ export default function AskData() {
     try {
       let response;
       if (mode === 'narrate') {
-        const result = await api.selectai.chat(question, true, profile, buildConversationHistory(messages));
+        const result = await api.selectai.chat(question, true, profile);
         response = {
           role: 'assistant',
           mode: 'narrate',
@@ -563,6 +573,27 @@ export default function AskData() {
             <FeatureBadge label="Generated SQL Inspection" color="cyan" />
             <FeatureBadge label="State and Local Government Semantic Views" color="blue" />
           </div>
+          <SqlBlock code={`-- Ask Data runtime: question -> Ollama -> Oracle SQL -> UI answer
+-- Four distinct modes are available:
+
+-- NARRATE: draft SQL, execute it, summarize results
+-- CHAT: use conversation context, draft SQL, return a conversational explanation
+-- SHOWSQL: inspect generated SQL before execution
+-- RUNSQL: execute generated SQL and return raw rows
+
+-- Example question:
+-- "Which service requests are still pending and signal-driven?"
+
+SELECT service_request_id,
+       request_status,
+       urgency_score,
+       service_value_exposure
+FROM governed_service_requests_view
+WHERE resident_signal_id IS NOT NULL
+  AND LOWER(request_status) NOT IN ('completed', 'routed', 'reopened')
+ORDER BY urgency_score DESC
+FETCH FIRST 5 ROWS ONLY;`} />
+
           <div>
             <p className="text-[10px] font-semibold text-[var(--color-text-dim)] uppercase tracking-wider mb-2">How It Works</p>
             <div className="space-y-1" style={{ fontSize: 9 }}>
@@ -768,14 +799,14 @@ export default function AskData() {
 
                     {msg.mode === 'narrate' && (
                       <>
-                        <NarrativeAnswer msg={msg} tone="teal" />
+                        <NarrativeAnswer msg={msg} tone="teal" onFollowUp={sendMessage} />
                         <GeneratedSqlDetails sql={msg.sql} />
                       </>
                     )}
 
                     {msg.mode === 'chat' && (
                       <>
-                        <NarrativeAnswer msg={msg} tone="ocean" />
+                        <NarrativeAnswer msg={msg} tone="ocean" onFollowUp={sendMessage} />
                         <GeneratedSqlDetails sql={msg.sql} />
                       </>
                     )}
