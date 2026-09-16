@@ -4,7 +4,7 @@
 
 Deploy the complete PeakGear AI Lakehouse in your own OCI tenancy with one **Deploy to Oracle Cloud** button. The approved Resource Manager package creates the network, an Oracle Linux application VM, Autonomous AI Database 26ai, private Object Storage, Gravitino, GoldenGate, GoldenGate Stream Analytics, and the PeakGear application.
 
-PeakGear is larger than the other industry LiveStacks. Resource Manager waits for the database load and the declared application services before Apply succeeds. Allow up to **three hours** for a new deployment.
+PeakGear is larger than the other industry LiveStacks. Resource Manager waits for the database load and the declared application services before Apply succeeds. Allow up to **1 hour 30 minutes** for a new deployment.
 
 Ready to deploy? Select **Deploy to Oracle Cloud** below. For detailed deployment instructions, check the tasks below.
 
@@ -12,7 +12,7 @@ Ready to deploy? Select **Deploy to Oracle Cloud** below. For detailed deploymen
 
 > **Important:** This stack creates paid OCI resources. Restrict access to trusted IPv4 CIDRs and run Destroy when the demonstration is complete.
 
-Estimated Time: **up to 3 hours**, including database provisioning, software downloads, data loading, container builds, and service validation.
+Estimated Time: **up to 1 hour 30 minutes**, including database provisioning, software downloads, data loading, container builds, and service validation.
 
 ### Objectives
 
@@ -32,10 +32,11 @@ Confirm that you have:
 - Permission to use OCI Generative AI in the selected compartment.
 - Capacity for the default PeakGear VM: **8 OCPUs**, **64 GB memory**, and a **300 GB** boot volume.
 - Capacity and budget for a paid Autonomous AI Database with **2 ECPUs** and **1 TB** storage.
-- An OpenSSH public key for the `opc` user.
+- Optional: an OpenSSH public key for the `opc` user and your trusted public IPv4 CIDR. Provide both to enable SSH, or leave both blank to deploy without SSH access.
 - Your Oracle Container Registry username and Auth Token. Accept the terms for the required database and GoldenGate images at [Oracle Container Registry](https://container-registry.oracle.com/) before deployment.
 - An existing OCI API key on the signed-in user. You need its fingerprint and the matching PEM private key encoded as one Base64 line.
 - An existing OCI Customer Secret Key on the signed-in user. You need its access key and secret key for Gravitino's S3-compatible Object Storage connection.
+- The approved `V1054826-01.zip` GGSA archive. Download it after accepting its terms and conditions, upload it to an OCI Object Storage bucket, then create an HTTPS read pre-authenticated request (PAR) for that object.
 - Your trusted public IPv4 address. Run the following command from the computer or VPN that will access the deployment, then append `/32`.
 
     ```bash
@@ -50,17 +51,23 @@ Windows PowerShell:
 
 ```powershell
 <copy>
-[Convert]::ToBase64String([IO.File]::ReadAllBytes("$HOME\.oci\oci_api_key.pem"))
+$keyPath = Read-Host "Full path to the OCI API private PEM file"
+$keyBytes = [IO.File]::ReadAllBytes($keyPath)
+[Convert]::ToBase64String($keyBytes) | Set-Clipboard
+Write-Host "The single-line Base64 value is now on the clipboard."
 </copy>
 ```
 
-macOS or Linux:
+macOS:
 
 ```bash
 <copy>
-base64 < ~/.oci/oci_api_key.pem | tr -d '\n'
+base64 < ~/.oci/oci_api_key.pem | tr -d '\n' | pbcopy
+printf 'The single-line Base64 value is now on the clipboard.\n'
 </copy>
 ```
+
+Replace `~/.oci/oci_api_key.pem` with the path to your API-signing private PEM file. These commands create a single Base64 line and copy it directly to the clipboard, which avoids losing PEM line-ending characters through an intermediate text editor.
 
 Treat the registry token, API private key, Customer Secret Key, generated database password, and Resource Manager state as sensitive.
 
@@ -92,10 +99,10 @@ Expected result:
     | **Compartment** | Compartment approved for the deployment and OCI Generative AI access. |
     | **Availability domain** | Availability domain with capacity for the selected VM shape. |
     | **Resource name prefix** | Keep the default or use a unique 3-30 character value beginning with a letter. |
-    | **SSH public key** | Paste the public key only. Never paste the private key. |
-    | **SSH source CIDR** | Use a trusted IPv4 CIDR such as your public address followed by `/32`. `0.0.0.0/0` is rejected. |
+    | **SSH public key** | Optional. Paste the public key only, never the private key. When supplied, you must also supply SSH source CIDR. |
+    | **SSH source CIDR** | Optional. Use the trusted IPv4 address that will connect to SSH, followed by `/32`. Provide it only when an SSH public key is supplied; otherwise leave both SSH fields blank. `0.0.0.0/0` is rejected. |
     | **PeakGear application source CIDR** | Use the trusted CIDR that will open PeakGear on port `8505`. |
-    | **Administration tools source CIDR** | Use a trusted CIDR to expose Gravitino, GoldenGate, and GGSA, or leave it blank to keep those ports private. |
+    | **Administration tools source CIDR** | Required. Use a trusted `/32` CIDR for Gravitino, GoldenGate, and GGSA. `0.0.0.0/0` is rejected. |
 
 2. Complete the **Required runtime credentials** fields.
 
@@ -107,6 +114,7 @@ Expected result:
     | **OCI API key fingerprint** | Fingerprint of the API key matching that private key. |
     | **Object Storage access key** | Access key from an OCI Customer Secret Key on the signed-in user. |
     | **Object Storage secret key** | Secret displayed when that Customer Secret Key was created. |
+    | **GGSA archive URL** | Required HTTPS read PAR URL for your approved `V1054826-01.zip` object. Do not paste an OCI Console URL. |
 
 3. Keep **Show advanced options** off unless your tenancy requires different capacity or licensing. The reviewed defaults are:
 

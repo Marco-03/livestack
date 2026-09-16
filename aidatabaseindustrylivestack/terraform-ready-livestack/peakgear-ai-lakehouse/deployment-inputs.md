@@ -14,7 +14,7 @@ Have the following items ready:
 - An Oracle Container Registry username and auth token with the required image license terms accepted.
 - An OCI API-signing private key in PEM format and the matching fingerprint.
 - An OCI Customer Secret Key access key and matching secret key.
-- The approved direct HTTPS URL for the GGSA archive `V1054826-01.zip`.
+- The approved GGSA archive `V1054826-01.zip`, downloaded after accepting its license terms, uploaded to an OCI Object Storage bucket, and exposed through an HTTPS read pre-authenticated request (PAR) URL.
 
 Optional: an OpenSSH public key and its matching private key, only if you want direct VM access for administration or troubleshooting.
 
@@ -78,6 +78,13 @@ See [Managing key pairs on Linux instances](https://docs.oracle.com/en-us/iaas/C
 
 If you supplied an SSH public key, enter the trusted public IPv4 address that will connect to SSH, followed by `/32`. This should be the public address of your computer or VPN. Leave this field blank when SSH is disabled. Never use `0.0.0.0/0` for SSH.
 
+The two SSH fields must always be completed together:
+
+- To enable SSH: provide both an SSH public key and an SSH source CIDR.
+- To disable SSH: leave both fields blank.
+
+Supplying a public key while leaving the CIDR blank, or the reverse, stops Plan with a validation error before OCI resources are created.
+
 ### Peak Gear application source CIDR
 
 Enter the public IPv4 CIDR that may open Peak Gear on port 8505. A single trusted computer or VPN egress address should use `/32`.
@@ -123,17 +130,17 @@ If you enable it, the additional fields are:
 
 ### GGSA archive URL
 
-Enter the approved direct HTTPS download URL for `V1054826-01.zip`. This is required for the deployment form you are using. It is a file URL, not an IP address or CIDR.
+Enter an HTTPS **read PAR URL** for `V1054826-01.zip`. This required field is a file URL, not an IP address or CIDR.
 
-Get the current approved link from the Peak Gear release or lab owner. Do not substitute an arbitrary GGSA archive.
+Prepare it before opening the deployment form:
 
-If you are responsible for publishing the approved archive:
+1. Download the approved GGSA archive after accepting its terms and conditions.
+2. In the OCI Console, open **Storage**, **Object Storage & Archive Storage**, then **Buckets**.
+3. Upload `V1054826-01.zip` to a bucket you can manage.
+4. Create an object-level pre-authenticated request that permits reads, and set an expiration that covers the deployment and test period.
+5. Copy the complete HTTPS PAR URL and enter it in **GGSA archive URL**. OCI does not show the full URL again after the dialog closes.
 
-1. In the OCI Console, open **Storage**, **Object Storage & Archive Storage**, then **Buckets**.
-2. Open the bucket containing the approved `V1054826-01.zip` object.
-3. Create an object-level pre-authenticated request that permits reads.
-4. Set an expiration date that covers the planned test period.
-5. Copy the complete URL when OCI displays it. OCI does not show the full URL again after the dialog closes.
+Do not use an arbitrary GGSA archive or a Console object-page URL.
 
 A pre-authenticated request URL is a bearer secret: anyone who has it can download the object until the request expires or is deleted. Never commit the URL to the repository. See [Object Storage pre-authenticated requests](https://docs.oracle.com/en-us/iaas/Content/Object/Tasks/usingpreauthenticatedrequests.htm).
 
@@ -190,19 +197,21 @@ Write-Host "The single-line Base64 value is now on the clipboard."
 **macOS**
 
 ```bash
-read -r -p "Path to the OCI API private PEM file: " key_path
-base64 < "$key_path" | tr -d '\r\n' | pbcopy
+base64 < ~/.oci/oci_api_key.pem | tr -d '\n' | pbcopy
 printf 'The single-line Base64 value is now on the clipboard.\n'
 ```
+
+Replace `~/.oci/oci_api_key.pem` with the actual path to your API-signing private PEM file. This command Base64-encodes the file, removes line breaks, and copies the one-line result directly to the clipboard. Pasting directly into Resource Manager avoids accidental missing or extra terminating characters from an intermediate text editor.
 
 **Linux**
 
 ```bash
 read -r -p "Path to the OCI API private PEM file: " key_path
-base64 < "$key_path" | tr -d '\r\n'
+base64 < "$key_path" | tr -d '\r\n' | wl-copy
+printf 'The single-line Base64 value is now on the clipboard.\n'
 ```
 
-On Linux, copy the single line printed by the command and paste it into the Resource Manager field. Clipboard utilities differ between Linux desktop environments, so the command does not assume one is installed.
+The Linux command uses `wl-copy` on Wayland. On X11, replace `wl-copy` with `xclip -selection clipboard`. If neither utility is available, omit the clipboard command, copy the resulting one-line value directly from the terminal, and paste it into Resource Manager.
 
 Do not print or paste the result into logs, source files, tickets, or chat. After you paste it into Resource Manager, clear the clipboard if required by your organization's security policy.
 
@@ -233,7 +242,7 @@ These values are not the Oracle Container Registry token and are not the OCI API
 4. Run **Plan** first and review the proposed resources.
 5. Run **Apply** only after the Plan succeeds and the proposed cost and resources are acceptable.
 
-The deployment provisions paid OCI resources. Apply can take up to three hours while Peak Gear downloads licensed software, loads Autonomous Database, builds containers, and verifies its services. Keep the browser job page open or return to the stack's Jobs list to monitor Apply. A long sequence of `Still creating` messages only means Resource Manager is waiting; use the phase and diagnostic outputs to determine actual progress.
+The deployment provisions paid OCI resources. Apply can take up to 1 hour 30 minutes while Peak Gear downloads licensed software, loads Autonomous Database, builds containers, and verifies its services. Keep the browser job page open or return to the stack's Jobs list to monitor Apply. A long sequence of `Still creating` messages only means Resource Manager is waiting; use the phase and diagnostic outputs to determine actual progress.
 
 ## 5. Open the application and verify the deployment
 
@@ -271,7 +280,7 @@ When the demo is no longer needed, run **Destroy** from the Resource Manager sta
 | Administration tools source CIDR | Yes | Trusted public IPv4 CIDR; never `0.0.0.0/0` |
 | Show advanced options | Yes | Keep off for the reviewed defaults |
 | VM and database advanced fields | Only when advanced options are on | Approved capacity, license, and region choices |
-| GGSA archive URL | Yes | Approved direct HTTPS URL for `V1054826-01.zip` |
+| GGSA archive URL | Yes | HTTPS read PAR URL for the approved `V1054826-01.zip` archive |
 | Oracle Container Registry username | Yes | Oracle Container Registry account |
 | Oracle Container Registry auth token | Yes | Oracle Container Registry profile |
 | OCI API private key, Base64 encoded | Yes | Base64 of the current user's API-signing private PEM key |
