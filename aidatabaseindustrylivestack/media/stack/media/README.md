@@ -65,6 +65,7 @@ Review `.env` before startup. The deployment archive carries `.env` byte-identic
 | `ORDS_PORT` | `8181` | Published ORDS port |
 | `OLLAMA_PORT` | `11434` | Published Ollama port |
 | `ORACLE_USER` | `LIVESTACK` | Application schema owner |
+| `ORACLE_USER_PWD` | Demo-only ORDS database-user password | Required by current ORDS container images during initial installation |
 | `ORACLE_PWD` | Demo-only default; change it | Oracle administrative password |
 | `APP_SCHEMA_PASSWORD` | Demo-only default; change it | Application schema password |
 | `ORACLE_CONNECTION_STRING` | `db:1521/FREEPDB1` | Application database connection |

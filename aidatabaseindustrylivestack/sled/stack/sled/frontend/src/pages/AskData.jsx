@@ -12,7 +12,7 @@ const MODES = [
     label: 'Narrate',
     iconClass: 'oj-fwk-icon-message-info',
     color: '#4F7D7B',
-    desc: 'Plain-English answer',
+    desc: 'Natural-language answer',
     tooltip: 'Generate SQL, run it, and narrate the results in public-sector language.',
   },
   {
@@ -616,7 +616,7 @@ FETCH FIRST 5 ROWS ONLY;`} />
           <JetGlyph iconClass="oj-fwk-icon-message-info" className="askdata-page-glyph tone-teal" /> Ask State and Local Government Data
         </h2>
         <p className="text-sm text-[var(--color-text-dim)] mt-1">
-          Ask plain-English questions about constituent services, permits and licensing, benefits eligibility, inspections, public works, transportation, emergency response, policy compliance, capacity, backlog, and auditability.
+          Ask natural-language questions about constituent services, permits and licensing, benefits eligibility, inspections, public works, transportation, emergency response, policy compliance, capacity, backlog, and auditability.
         </p>
       </div>
 

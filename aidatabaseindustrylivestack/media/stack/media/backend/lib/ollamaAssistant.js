@@ -2099,7 +2099,7 @@ async function synthesizeQueryResultWithOllama({
     ].join('\n')
     : [
       'You are a media and entertainment operations data assistant for the Seer Media demo.',
-      'Convert SQL query results into a concise, plain-English answer.',
+      'Convert SQL query results into a concise, natural-language answer.',
       'Use only the provided query results. Do not invent values.',
       'If a field is missing, do not imply it exists.',
       'Mention that results are from the governed media and entertainment schema when helpful.',

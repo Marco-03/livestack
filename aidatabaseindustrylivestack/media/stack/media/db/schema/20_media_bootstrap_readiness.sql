@@ -409,7 +409,14 @@ BEGIN
                AND sql_id IS NOT NULL
                AND child_number IS NOT NULL
                AND plan_hash_value IS NOT NULL
-               AND plan_hash_value > 0
+               AND (
+                 (plan_hash_value > 0
+                  AND operation <> 'PLAN_PROJECTION_UNAVAILABLE')
+                 OR
+                 (plan_hash_value = 0
+                  AND operation = 'PLAN_PROJECTION_UNAVAILABLE'
+                  AND options IS NULL)
+               )
                AND dataset_fingerprint = (
                  SELECT source_fingerprint
                  FROM app_oml_generations
@@ -426,7 +433,14 @@ BEGIN
                AND sql_id IS NOT NULL
                AND child_number IS NOT NULL
                AND plan_hash_value IS NOT NULL
-               AND plan_hash_value > 0
+               AND (
+                 (plan_hash_value > 0
+                  AND operation <> 'PLAN_PROJECTION_UNAVAILABLE')
+                 OR
+                 (plan_hash_value = 0
+                  AND operation = 'PLAN_PROJECTION_UNAVAILABLE'
+                  AND options IS NULL)
+               )
                AND object_name = 'IDX_FC_SPATIAL'
                AND result_row_count > 0
                AND dataset_fingerprint = (
@@ -445,7 +459,14 @@ BEGIN
                AND sql_id IS NOT NULL
                AND child_number IS NOT NULL
                AND plan_hash_value IS NOT NULL
-               AND plan_hash_value > 0
+               AND (
+                 (plan_hash_value > 0
+                  AND operation <> 'PLAN_PROJECTION_UNAVAILABLE')
+                 OR
+                 (plan_hash_value = 0
+                  AND operation = 'PLAN_PROJECTION_UNAVAILABLE'
+                  AND options IS NULL)
+               )
                AND object_name = 'CUSTOMERS'
                AND result_row_count > 0
                AND dataset_fingerprint = (

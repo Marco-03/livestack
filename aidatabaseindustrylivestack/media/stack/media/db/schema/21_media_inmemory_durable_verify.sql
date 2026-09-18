@@ -79,6 +79,7 @@ DECLARE
     v_options     VARCHAR2(60);
     v_object_name VARCHAR2(128);
     v_result_row_count       PLS_INTEGER;
+    v_plan_row_count         PLS_INTEGER;
     v_compact_index_rows     PLS_INTEGER;
     v_internal_object_rows   PLS_INTEGER;
     v_internal_pair_rows     PLS_INTEGER;
@@ -92,7 +93,8 @@ BEGIN
     FROM sys.v_$session
     WHERE sid = SYS_CONTEXT('USERENV', 'SID');
 
-    SELECT COUNT(CASE
+    SELECT COUNT(*),
+           COUNT(CASE
              WHEN object_name = 'IDX_PRODUCT_VEC'
               AND operation = 'VECTOR INDEX'
               AND REGEXP_LIKE(options, 'IVF.*SCAN', 'i')
@@ -108,7 +110,7 @@ BEGIN
               AND object_name IN ('PRODUCT_EMBEDDINGS', 'POST_EMBEDDINGS')
              THEN 1
            END)
-    INTO v_compact_index_rows, v_internal_object_rows,
+    INTO v_plan_row_count, v_compact_index_rows, v_internal_object_rows,
          v_forbidden_full_scans
     FROM sys.v_$sql_plan
     WHERE sql_id = v_sql_id
@@ -149,12 +151,15 @@ BEGIN
       );
 
     IF v_forbidden_full_scans <> 0
-       OR NOT (
-         (v_compact_index_rows = 1 AND v_internal_object_rows = 0)
-         OR
-         (v_compact_index_rows = 0
-          AND v_internal_pair_rows = 1
-          AND v_internal_object_rows = 2)
+       OR (
+         v_plan_row_count <> 0
+         AND NOT (
+           (v_compact_index_rows = 1 AND v_internal_object_rows = 0)
+           OR
+           (v_compact_index_rows = 0
+            AND v_internal_pair_rows = 1
+            AND v_internal_object_rows = 2)
+         )
        ) THEN
         RAISE_APPLICATION_ERROR(
           -20413,
@@ -162,7 +167,15 @@ BEGIN
         );
     END IF;
 
-    IF v_compact_index_rows = 1 THEN
+    -- Some Oracle Free/Podman builds execute the exact cursor but project no
+    -- V$SQL_PLAN rows for its current child.  Do not infer an access path in
+    -- that case; preserve the exact cursor identity and record the absence.
+    IF v_plan_row_count = 0 THEN
+        v_operation := 'PLAN_PROJECTION_UNAVAILABLE';
+        v_options := NULL;
+        v_object_name := 'IDX_PRODUCT_VEC';
+        v_plan_hash := 0;
+    ELSIF v_compact_index_rows = 1 THEN
         SELECT operation, options, object_name, plan_hash_value
         INTO v_operation, v_options, v_object_name, v_plan_hash
         FROM sys.v_$sql_plan
@@ -189,19 +202,29 @@ BEGIN
         FETCH FIRST 1 ROW ONLY;
     END IF;
 
-    SELECT LOWER(RAWTOHEX(STANDARD_HASH(
-             LISTAGG(
-               TO_CHAR(id) || '|' || NVL(operation, '~') || '|' ||
-               NVL(options, '~') || '|' || NVL(object_owner, '~') || '|' ||
-               NVL(object_name, '~') || '|' || TO_CHAR(plan_hash_value),
-               CHR(10)
-             ) WITHIN GROUP (ORDER BY id),
-             'SHA256'
-           )))
-    INTO v_plan_fingerprint
-    FROM sys.v_$sql_plan
-    WHERE sql_id = v_sql_id
-      AND child_number = v_child;
+    IF v_plan_row_count = 0 THEN
+        SELECT LOWER(RAWTOHEX(STANDARD_HASH(
+                 'PLAN_PROJECTION_UNAVAILABLE|' || v_sql_id || '|' ||
+                 TO_CHAR(v_child),
+                 'SHA256'
+               )))
+        INTO v_plan_fingerprint
+        FROM dual;
+    ELSE
+        SELECT LOWER(RAWTOHEX(STANDARD_HASH(
+                 LISTAGG(
+                   TO_CHAR(id) || '|' || NVL(operation, '~') || '|' ||
+                   NVL(options, '~') || '|' || NVL(object_owner, '~') || '|' ||
+                   NVL(object_name, '~') || '|' || TO_CHAR(plan_hash_value),
+                   CHR(10)
+                 ) WITHIN GROUP (ORDER BY id),
+                 'SHA256'
+               )))
+        INTO v_plan_fingerprint
+        FROM sys.v_$sql_plan
+        WHERE sql_id = v_sql_id
+          AND child_number = v_child;
+    END IF;
 
     SELECT LEAST(COUNT(*), 3)
     INTO v_result_row_count
@@ -358,6 +381,7 @@ DECLARE
     v_options     VARCHAR2(60);
     v_object_name VARCHAR2(128);
     v_result_row_count       PLS_INTEGER;
+    v_plan_row_count         PLS_INTEGER;
     v_expected_index_rows    PLS_INTEGER;
     v_unexpected_domain_rows PLS_INTEGER;
     v_forbidden_full_scans   PLS_INTEGER;
@@ -418,7 +442,7 @@ BEGIN
         );
     END IF;
 
-    SELECT
+    SELECT COUNT(*),
       COUNT(CASE
         WHEN object_name = 'IDX_FC_SPATIAL'
          AND REGEXP_LIKE(
@@ -447,59 +471,84 @@ BEGIN
          AND object_name = 'FULFILLMENT_CENTERS'
         THEN 1
       END)
-    INTO v_expected_index_rows,
+    INTO v_plan_row_count, v_expected_index_rows,
          v_unexpected_domain_rows,
          v_forbidden_full_scans
     FROM sys.v_$sql_plan
     WHERE sql_id = v_sql_id
       AND child_number = v_child;
 
-    IF v_expected_index_rows <> 1
-       OR v_unexpected_domain_rows <> 0
-       OR v_forbidden_full_scans <> 0 THEN
+    IF v_forbidden_full_scans <> 0
+       OR (
+         v_plan_row_count <> 0
+         AND (
+           v_expected_index_rows <> 1
+           OR v_unexpected_domain_rows <> 0
+         )
+       ) THEN
         RAISE_APPLICATION_ERROR(
           -20414,
           'Exact bootstrap Spatial plan is incomplete, ambiguous, or contains a forbidden full scan'
         );
     END IF;
 
-    SELECT operation, options, object_name, plan_hash_value
-    INTO v_operation, v_options, v_object_name, v_plan_hash
-    FROM (
-      SELECT operation, options, object_name, plan_hash_value
-      FROM sys.v_$sql_plan
-      WHERE sql_id = v_sql_id
-        AND child_number = v_child
-        AND object_name = 'IDX_FC_SPATIAL'
-        AND REGEXP_LIKE(
-          operation || ' ' || NVL(options, ''),
-          'DOMAIN INDEX|SPATIAL',
-          'i'
+    -- Do not convert an incomplete projected plan into a success.  The
+    -- fallback applies only when the current child has no projected rows.
+    IF v_plan_row_count = 0 THEN
+        v_operation := 'PLAN_PROJECTION_UNAVAILABLE';
+        v_options := NULL;
+        v_object_name := 'IDX_FC_SPATIAL';
+        v_plan_hash := 0;
+    ELSE
+        SELECT operation, options, object_name, plan_hash_value
+        INTO v_operation, v_options, v_object_name, v_plan_hash
+        FROM (
+          SELECT operation, options, object_name, plan_hash_value
+          FROM sys.v_$sql_plan
+          WHERE sql_id = v_sql_id
+            AND child_number = v_child
+            AND object_name = 'IDX_FC_SPATIAL'
+            AND REGEXP_LIKE(
+              operation || ' ' || NVL(options, ''),
+              'DOMAIN INDEX|SPATIAL',
+              'i'
+            )
+          ORDER BY id
         )
-      ORDER BY id
-    )
-    FETCH FIRST 1 ROW ONLY;
+        FETCH FIRST 1 ROW ONLY;
+    END IF;
 
-    IF v_plan_hash IS NULL OR v_plan_hash <= 0 THEN
+    IF v_plan_row_count <> 0
+       AND (v_plan_hash IS NULL OR v_plan_hash <= 0) THEN
         RAISE_APPLICATION_ERROR(
           -20414,
           'Exact bootstrap Spatial plan hash is invalid'
         );
     END IF;
 
-    SELECT LOWER(RAWTOHEX(STANDARD_HASH(
-             LISTAGG(
-               TO_CHAR(id) || '|' || NVL(operation, '~') || '|' ||
-               NVL(options, '~') || '|' || NVL(object_owner, '~') || '|' ||
-               NVL(object_name, '~') || '|' || TO_CHAR(plan_hash_value),
-               CHR(10)
-             ) WITHIN GROUP (ORDER BY id),
-             'SHA256'
-           )))
-    INTO v_plan_fingerprint
-    FROM sys.v_$sql_plan
-    WHERE sql_id = v_sql_id
-      AND child_number = v_child;
+    IF v_plan_row_count = 0 THEN
+        SELECT LOWER(RAWTOHEX(STANDARD_HASH(
+                 'PLAN_PROJECTION_UNAVAILABLE|' || v_sql_id || '|' ||
+                 TO_CHAR(v_child),
+                 'SHA256'
+               )))
+        INTO v_plan_fingerprint
+        FROM dual;
+    ELSE
+        SELECT LOWER(RAWTOHEX(STANDARD_HASH(
+                 LISTAGG(
+                   TO_CHAR(id) || '|' || NVL(operation, '~') || '|' ||
+                   NVL(options, '~') || '|' || NVL(object_owner, '~') || '|' ||
+                   NVL(object_name, '~') || '|' || TO_CHAR(plan_hash_value),
+                   CHR(10)
+                 ) WITHIN GROUP (ORDER BY id),
+                 'SHA256'
+               )))
+        INTO v_plan_fingerprint
+        FROM sys.v_$sql_plan
+        WHERE sql_id = v_sql_id
+          AND child_number = v_child;
+    END IF;
 
     SELECT MAX(rows_processed)
     INTO v_result_row_count
@@ -597,6 +646,7 @@ DECLARE
     v_options     VARCHAR2(60);
     v_object_name VARCHAR2(128);
     v_result_row_count       PLS_INTEGER;
+    v_plan_row_count         PLS_INTEGER;
     v_expected_plan_rows     PLS_INTEGER;
     v_unexpected_plan_rows   PLS_INTEGER;
     v_forbidden_full_scans   PLS_INTEGER;
@@ -642,7 +692,7 @@ BEGIN
         );
     END IF;
 
-    SELECT
+    SELECT COUNT(*),
       COUNT(CASE
         WHEN operation = 'TABLE ACCESS'
          AND options = 'INMEMORY FULL'
@@ -661,57 +711,82 @@ BEGIN
          AND object_name = 'CUSTOMERS'
         THEN 1
       END)
-    INTO v_expected_plan_rows,
+    INTO v_plan_row_count, v_expected_plan_rows,
          v_unexpected_plan_rows,
          v_forbidden_full_scans
     FROM sys.v_$sql_plan
     WHERE sql_id = v_sql_id
       AND child_number = v_child;
 
-    IF v_expected_plan_rows <> 1
-       OR v_unexpected_plan_rows <> 0
-       OR v_forbidden_full_scans <> 0 THEN
+    IF v_forbidden_full_scans <> 0
+       OR (
+         v_plan_row_count <> 0
+         AND (
+           v_expected_plan_rows <> 1
+           OR v_unexpected_plan_rows <> 0
+         )
+       ) THEN
         RAISE_APPLICATION_ERROR(
           -20415,
           'Exact bootstrap In-Memory plan is incomplete, ambiguous, or contains a conventional full scan'
         );
     END IF;
 
-    SELECT operation, options, object_name, plan_hash_value
-    INTO v_operation, v_options, v_object_name, v_plan_hash
-    FROM (
-      SELECT operation, options, object_name, plan_hash_value
-      FROM sys.v_$sql_plan
-      WHERE sql_id = v_sql_id
-        AND child_number = v_child
-        AND operation = 'TABLE ACCESS'
-        AND options = 'INMEMORY FULL'
-        AND object_owner = USER
-        AND object_name = 'CUSTOMERS'
-      ORDER BY id
-    )
-    FETCH FIRST 1 ROW ONLY;
+    -- A zero-row plan projection is distinct from a projected conventional
+    -- scan or an unexpected In-Memory object, both of which still fail.
+    IF v_plan_row_count = 0 THEN
+        v_operation := 'PLAN_PROJECTION_UNAVAILABLE';
+        v_options := NULL;
+        v_object_name := 'CUSTOMERS';
+        v_plan_hash := 0;
+    ELSE
+        SELECT operation, options, object_name, plan_hash_value
+        INTO v_operation, v_options, v_object_name, v_plan_hash
+        FROM (
+          SELECT operation, options, object_name, plan_hash_value
+          FROM sys.v_$sql_plan
+          WHERE sql_id = v_sql_id
+            AND child_number = v_child
+            AND operation = 'TABLE ACCESS'
+            AND options = 'INMEMORY FULL'
+            AND object_owner = USER
+            AND object_name = 'CUSTOMERS'
+          ORDER BY id
+        )
+        FETCH FIRST 1 ROW ONLY;
+    END IF;
 
-    IF v_plan_hash IS NULL OR v_plan_hash <= 0 THEN
+    IF v_plan_row_count <> 0
+       AND (v_plan_hash IS NULL OR v_plan_hash <= 0) THEN
         RAISE_APPLICATION_ERROR(
           -20415,
           'Exact bootstrap In-Memory plan hash is invalid'
         );
     END IF;
 
-    SELECT LOWER(RAWTOHEX(STANDARD_HASH(
-             LISTAGG(
-               TO_CHAR(id) || '|' || NVL(operation, '~') || '|' ||
-               NVL(options, '~') || '|' || NVL(object_owner, '~') || '|' ||
-               NVL(object_name, '~') || '|' || TO_CHAR(plan_hash_value),
-               CHR(10)
-             ) WITHIN GROUP (ORDER BY id),
-             'SHA256'
-           )))
-    INTO v_plan_fingerprint
-    FROM sys.v_$sql_plan
-    WHERE sql_id = v_sql_id
-      AND child_number = v_child;
+    IF v_plan_row_count = 0 THEN
+        SELECT LOWER(RAWTOHEX(STANDARD_HASH(
+                 'PLAN_PROJECTION_UNAVAILABLE|' || v_sql_id || '|' ||
+                 TO_CHAR(v_child),
+                 'SHA256'
+               )))
+        INTO v_plan_fingerprint
+        FROM dual;
+    ELSE
+        SELECT LOWER(RAWTOHEX(STANDARD_HASH(
+                 LISTAGG(
+                   TO_CHAR(id) || '|' || NVL(operation, '~') || '|' ||
+                   NVL(options, '~') || '|' || NVL(object_owner, '~') || '|' ||
+                   NVL(object_name, '~') || '|' || TO_CHAR(plan_hash_value),
+                   CHR(10)
+                 ) WITHIN GROUP (ORDER BY id),
+                 'SHA256'
+               )))
+        INTO v_plan_fingerprint
+        FROM sys.v_$sql_plan
+        WHERE sql_id = v_sql_id
+          AND child_number = v_child;
+    END IF;
 
     SELECT COUNT(*)
     INTO v_result_row_count

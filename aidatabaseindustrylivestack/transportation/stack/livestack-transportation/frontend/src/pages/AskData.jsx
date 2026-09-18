@@ -12,7 +12,7 @@ const MODES = [
     label: 'Explain',
     iconClass: 'oj-fwk-icon-message-info',
     color: '#4F7D7B',
-    desc: 'Plain-English answer',
+    desc: 'Natural-language answer',
     tooltip: 'Answer in plain English without showing the full SQL.',
   },
   {

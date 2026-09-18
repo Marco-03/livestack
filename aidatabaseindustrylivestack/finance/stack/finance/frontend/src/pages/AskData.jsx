@@ -605,7 +605,7 @@ export default function AskData() {
           <JetGlyph iconClass="oj-fwk-icon-message-info" className="askdata-page-glyph tone-teal" /> Finance Data Copilot
         </h2>
         <p className="text-sm text-[var(--color-text-dim)] mt-1">
-          Ask plain-English fraud, compliance, service, and exposure questions about Seer Bank&apos;s operational data. The assistant can explain results, continue a conversation, show generated SQL, or run approved queries.
+          Ask natural-language questions about fraud, compliance, service, and exposure across Seer Bank&apos;s operational data. The assistant can explain results, continue a conversation, show generated SQL, or run approved queries.
         </p>
       </div>
 
