@@ -13,7 +13,7 @@ const MODES = [
     iconClass: 'oj-fwk-icon-message-info',
     color: '#4F7D7B',
     desc: 'Natural-language answer',
-    tooltip: 'Answer in plain English without showing the full SQL.',
+    tooltip: 'Answer using natural language without showing the full SQL.',
   },
   {
     id: 'chat',
@@ -732,7 +732,7 @@ FETCH FIRST 5 ROWS ONLY;
           <JetGlyph iconClass="oj-fwk-icon-message-info" className="askdata-page-glyph tone-teal" /> Ask Healthcare Data
         </h2>
         <p className="text-sm text-[var(--color-text-dim)] mt-1">
-          Ask questions about care operations, capacity, logistics, quality signals, service requests, and care pathways in plain English. The assistant can explain results, show generated SQL, or execute governed queries against the live healthcare schema.
+          Ask questions about care operations, capacity, logistics, quality signals, service requests, and care pathways using natural language. The assistant can explain results, show generated SQL, or execute governed queries against the live healthcare schema.
         </p>
       </div>
 

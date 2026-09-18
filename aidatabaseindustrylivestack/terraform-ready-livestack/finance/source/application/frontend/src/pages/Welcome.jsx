@@ -76,7 +76,7 @@ const USE_CASES = [
     label: 'Governed Data Copilot',
     intro: 'Lets sellers and analysts ask scenario questions to:',
     bullets: [
-      'Explain the fraud-led storyline in plain English',
+      'Explain the fraud-led storyline using natural language',
       'Query live governed finance data',
       'Inspect evidence behind operational decisions',
     ],

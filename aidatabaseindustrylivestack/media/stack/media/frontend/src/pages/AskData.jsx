@@ -13,7 +13,7 @@ const MODES = [
     iconClass: 'oj-fwk-icon-message-info',
     color: '#4F7D7B',
     desc: 'Natural-language answer',
-    tooltip: 'Answer in plain English without showing the full SQL.',
+    tooltip: 'Answer using natural language without showing the full SQL.',
   },
   {
     id: 'chat',

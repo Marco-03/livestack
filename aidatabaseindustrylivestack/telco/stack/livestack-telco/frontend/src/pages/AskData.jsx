@@ -353,7 +353,7 @@ FETCH FIRST 5 ROWS ONLY;
           <JetGlyph iconClass="oj-fwk-icon-message-info" className="askdata-page-glyph tone-teal" /> Ask Telecom Operations Data
         </h2>
         <p className="text-sm text-[var(--color-text-dim)] mt-1">
-          Ask Seer Comms mobile network, service, subscriber, revenue, and capacity questions in plain English against live governed operations data.
+          Ask Seer Comms mobile network, service, subscriber, revenue, and capacity questions using natural language against live governed operations data.
         </p>
       </div>
 
@@ -431,7 +431,7 @@ FETCH FIRST 5 ROWS ONLY;
             <div className="space-y-4 py-6">
               <div className="text-center mb-4">
                 <JetGlyph iconClass="oj-fwk-icon-magnifier" className="askdata-empty-glyph tone-teal" />
-                <p className="text-sm text-[var(--color-text-dim)]">Ask anything about demo subscriber operations data in plain English</p>
+                <p className="text-sm text-[var(--color-text-dim)]">Ask anything about demo subscriber operations data using natural language</p>
                 <p className="text-[10px] text-[var(--color-text-dim)] mt-1">
                   The runtime drafts SQL, Oracle executes it, and the app explains or displays the results
                 </p>

@@ -390,7 +390,7 @@ ORDER BY (reorder_point - quantity_on_hand) DESC,
           <JetGlyph iconClass="oj-fwk-icon-message-info" className="askdata-page-glyph tone-teal" /> Ask Retail Data
         </h2>
         <p className="text-sm text-[var(--color-text-dim)] mt-1">
-          Ask retail questions in plain English while Oracle AI Database 26ai remains the source of truth for SQL execution and results.
+          Ask retail questions using natural language while Oracle AI Database 26ai remains the source of truth for SQL execution and results.
         </p>
         <p className="text-xs text-[var(--color-text-dim)] mt-2">
           Oracle Database Select AI is outside this parity wave. This mounted
@@ -491,7 +491,7 @@ ORDER BY (reorder_point - quantity_on_hand) DESC,
             <div className="space-y-4 py-6">
               <div className="text-center mb-4">
                 <JetGlyph iconClass="oj-fwk-icon-magnifier" className="askdata-empty-glyph tone-teal" />
-                <p className="text-sm text-[var(--color-text-dim)]">Ask anything about your data in plain English</p>
+                <p className="text-sm text-[var(--color-text-dim)]">Ask anything about your data using natural language</p>
                 <p className="text-[10px] text-[var(--color-text-dim)] mt-1">
                   Ollama drafts the SQL, Oracle executes it, and the app explains or displays the results
                 </p>
