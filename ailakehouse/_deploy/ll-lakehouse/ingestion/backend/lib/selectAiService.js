@@ -230,8 +230,9 @@ async function generateWithDbmsCloudAi(connection, { prompt, profileName, action
 async function fetchAvailablePackages(connection) {
   const result = await connection.execute(
     `SELECT DISTINCT object_name
-     FROM all_procedures
-     WHERE object_name IN ('DBMS_CLOUD', 'DBMS_CLOUD_AI')`,
+     FROM all_objects
+     WHERE object_name IN ('DBMS_CLOUD', 'DBMS_CLOUD_AI')
+       AND object_type IN ('PACKAGE', 'SYNONYM')`,
     {},
     { outFormat: db.oracledb.OUT_FORMAT_OBJECT }
   );
