@@ -625,6 +625,14 @@ api_request() {
   API_STATUS=200
   printf '%s %s\n' "${method}" "${path}" >> "${RESET_CALLS_FILE}"
   case "${method} ${path}" in
+    "GET /mock-api/projects/name/peakgear_medallion")
+      if [[ "${MOCK_MEDALLION_PRESENT:-false}" == true ]]; then
+        printf '%s\n' '{"name":"peakgear_medallion","globalId":"medallion-id"}' > "${output_file}"
+      else
+        API_STATUS=404
+        return 1
+      fi
+      ;;
     "GET /mock-api/bulkload")
       printf '%s\n' '[{"bulkLoadName":"dataLoad","parentProjectName":"peakgear","globalId":"load-id"}]' > "${output_file}"
       ;;
@@ -652,6 +660,7 @@ api_request() {
 reset_demo_data_transforms "/mock-api" || fail "Data Transforms demo reset failed."
 expected_reset_calls="${WORK_DIR}/expected-reset-calls.log"
 cat > "${expected_reset_calls}" <<'EOF'
+GET /mock-api/projects/name/peakgear_medallion
 GET /mock-api/bulkload
 DELETE /mock-api/bulkload/id/load-id
 GET /mock-api/mappings
@@ -666,6 +675,14 @@ DELETE /mock-api/dataservers/id/iceberg-default?cascade=true&forceDelete=true
 EOF
 cmp -s "${expected_reset_calls}" "${RESET_CALLS_FILE}" \
   || fail "Data Transforms demo reset did not use the expected scoped deletion order."
+
+MOCK_MEDALLION_PRESENT=true
+RESET_CALLS_FILE="${WORK_DIR}/protected-reset-calls.log"
+reset_demo_data_transforms "/mock-api" || fail "Medallion reset guard failed."
+[[ "$(wc -l < "${RESET_CALLS_FILE}" | tr -d ' ')" == 1 ]] \
+  || fail "Reset touched shared metadata despite the medallion project."
+grep -q '^GET /mock-api/projects/name/peakgear_medallion$' "${RESET_CALLS_FILE}" \
+  || fail "Reset did not check the medallion project."
 
 is_disabled false || fail "false must disable provisioning."
 is_disabled 0 || fail "0 must disable provisioning."

@@ -53,7 +53,8 @@ if ! is_enabled "${AI_DATA_CATALOG_ENABLED:-false}"; then
 fi
 
 if [[ -f "${MARKER_FILE}" ]]; then
-  log "AI Data Catalog marker exists; skipping."
+  log "AI Data Catalog marker exists; reconciling catalog access."
+  python3 "$(dirname "${BASH_SOURCE[0]}")/configure-ai-catalog-access.py"
   exit 0
 fi
 
@@ -261,6 +262,10 @@ if ! sql -L /nolog @"${WORK_DIR}/configure.sql" > "${WORK_DIR}/access.out" 2>&1;
   fail "AI Data Catalog access configuration failed"
 fi
 cat "${WORK_DIR}/access.out"
+
+# Database AICAT_USER alone does not grant the REST catalog privileges.
+# Reconcile before PG mounts/seeds the catalog or Data Transforms tests it.
+python3 "$(dirname "${BASH_SOURCE[0]}")/configure-ai-catalog-access.py"
 
 if ! sql -L /nolog @"${WORK_DIR}/mount.sql" > "${WORK_DIR}/mount.out" 2>&1; then
   sed -E 's/(CLIENT_SECRET|p_secret_key|password)[[:space:]]*=>[[:space:]]*[^,)]*/\1 => [REDACTED]/Ig' "${WORK_DIR}/mount.out" >&2

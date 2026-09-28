@@ -1276,6 +1276,19 @@ delete_data_transforms_object() {
 
 reset_demo_data_transforms() {
   local api_prefix="$1"
+  local medallion_name="${DATA_TRANSFORMS_MEDALLION_PROJECT_NAME:-peakgear_medallion}"
+  local medallion_file="${WORK_DIR}/medallion-reset-guard.json"
+  # Reset removes shared PG schema metadata with cascade=true. Once the second
+  # project exists, preserve both projects and let ensure_* add missing objects.
+  if api_request "GET" "${api_prefix}/projects/name/${medallion_name}" "" "${medallion_file}"; then
+    if [[ -n "$(extract_project_id "${medallion_file}" "${medallion_name}" || true)" ]]; then
+      log "Preserving Data Transforms projects: ${medallion_name} uses shared PG metadata; skipping demo reset."
+      return 0
+    fi
+  elif [[ "${API_STATUS}" != "404" ]]; then
+    log "Cannot check medallion dependencies; refusing shared metadata reset."
+    return 1
+  fi
   local project_name="${DATA_TRANSFORMS_DEMO_PROJECT_NAME:-${DEFAULT_DEMO_PROJECT_NAME}}"
   local flow_name="${DATA_TRANSFORMS_DEMO_DATA_FLOW_NAME:-dataFlow}"
   local load_name="${DATA_TRANSFORMS_DEMO_DATA_LOAD_NAME:-dataLoad}"

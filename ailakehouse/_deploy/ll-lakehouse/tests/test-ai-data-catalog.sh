@@ -47,6 +47,8 @@ require_text "${CONFIG_SCRIPT}" 'AI_DATA_CATALOG_URL must use https://<host>/cat
 require_text "${CONFIG_SCRIPT}" 'AI_DATA_CATALOG_WAREHOUSE must be an empty dedicated bucket'
 require_text "${CONFIG_SCRIPT}" "ORACLE_AI_DATA_CATALOG.REGISTER_STORAGE_OCI"
 require_text "${CONFIG_SCRIPT}" "GRANT AICAT_USER TO"
+require_text "${CONFIG_SCRIPT}" 'AI Data Catalog marker exists; reconciling catalog access.'
+require_text "${CONFIG_SCRIPT}" 'configure-ai-catalog-access.py'
 require_text "${CONFIG_SCRIPT}" "DBMS_SHARE.CREATE_BEARER_TOKEN_CREDENTIAL"
 require_text "${CONFIG_SCRIPT}" "DBMS_CATALOG.MOUNT_ICEBERG"
 require_text "${CONFIG_SCRIPT}" "catalog_type            => 'ICEBERG_ORACLE'"
