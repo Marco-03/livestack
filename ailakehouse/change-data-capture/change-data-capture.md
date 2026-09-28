@@ -41,7 +41,7 @@ Open the **Change Data Capture** demo:
 Review GoldenGate access and CDC readiness:
 
 1. Review the **GoldenGate Studio** login area.
-2. Click **Open GoldenGate** to open GoldenGate Studio in a new browser tab.
+2. Click **Open GoldenGate** to open GoldenGate Studio in a new browser tab.  (*Note*: Click **Advance** and **Proceed to <ip>** to open URL)
 3. Use the displayed username and password from your environment to sign in.
 4. Return to the LiveStack page and confirm that **NetSuite Source DB**, **Oracle GoldenGate Studio Free**, and **ADB Bronze Customer Mirror** show **Ready**.
 5. If **CDC Flow** is still **Pending**, continue to the next tasks. That means the prepared pipeline still needs to be started.

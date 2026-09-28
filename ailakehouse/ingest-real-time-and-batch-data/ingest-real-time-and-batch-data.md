@@ -39,8 +39,8 @@ Open the Real-Time Streaming demo:
 
 Review GoldenGate Stream Analytics access without changing the prepared pipeline:
 
-1. Click **Open OSA** if you want to inspect GoldenGate Stream Analytics in a new tab.
-2. Use the displayed OSA credentials to sign in when prompted.
+1. Click **Open OSA** if you want to inspect GoldenGate Stream Analytics in a new tab. 
+2. Use the displayed OSA credentials to sign in when prompted. (*Note*: Click **Advance** and **Proceed to <ip>** to open URL)
 3. In GoldenGate Stream Analytics, review the existing streaming pipeline only. Do not create or change the pipeline during this demo walkthrough.
 4. On the LiveStack page, confirm that **GoldenGate Stream Analytics** is **Ready** and that the **AI Lakehouse Bronze Target** is reachable.
 
