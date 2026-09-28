@@ -2,7 +2,7 @@
 
 ## Introduction
 
-Estimated Workshop Time: TODO - x minutes
+Estimated Workshop Time: 60 minutes
 
 
 Financial institutions need faster, better-governed decisions while risk, client, transaction, service, and compliance data often live in separate systems. The **Seer Bank Finance LiveStack** shows how those signals can come together so teams can spot exposure, investigate risk, improve service coverage, and act with more confidence.
