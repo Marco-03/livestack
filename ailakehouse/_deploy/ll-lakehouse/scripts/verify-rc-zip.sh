@@ -88,6 +88,16 @@ reject_text() {
   fi
 }
 
+reject_crlf() {
+  local entry="$1"
+  local content
+  content="$(unzip -p "${ZIP_PATH}" "${entry}")"
+  if [[ "${content}" == *$'\r'* ]]; then
+    echo "Windows CRLF line endings found in runtime text file: ${entry}" >&2
+    exit 1
+  fi
+}
+
 echo "Testing compressed archive data..."
 unzip -tq "${ZIP_PATH}"
 
@@ -138,6 +148,10 @@ require_entry "tests/test-aws-glue-catalog.sh"
 require_entry "tests/test-data-transforms-connection-provisioning.sh"
 require_entry "tests/test-wallet-hardening.sh"
 require_entry "tests/test-osa-streaming-restart-safety.sh"
+
+while IFS= read -r runtime_text_entry; do
+  [[ -z "${runtime_text_entry}" ]] || reject_crlf "${runtime_text_entry}"
+done < <(grep -E '(^|/)(Dockerfile|[^/]+\.(sh|service|py|ya?ml))$' <<< "${ZIP_ENTRIES}")
 
 echo "Checking excluded runtime/build artifacts..."
 forbidden_entries="$(

@@ -58,10 +58,12 @@ hash_file() {
 }
 
 TMP_ZIP="$(mktemp "${TMPDIR:-/tmp}/ll-lakehouse-build_dev.XXXXXX.zip")"
+TMP_STAGE="$(mktemp -d "${TMPDIR:-/tmp}/ll-lakehouse-build_dev.XXXXXX")"
 rm -f "${TMP_ZIP}"
 
 cleanup() {
   rm -f "${TMP_ZIP}"
+  rm -rf "${TMP_STAGE}"
 }
 trap cleanup EXIT
 
@@ -112,7 +114,23 @@ zip -qr "${TMP_ZIP}" . \
   -x './**/.netsuite_bootstrap_done' \
   -x './**/oradata/*'
 
+unzip -q "${TMP_ZIP}" -d "${TMP_STAGE}"
+find "${TMP_STAGE}" -type f \
+  \( -name '*.sh' \
+     -o -name '*.service' \
+     -o -name 'Dockerfile' \
+     -o -name '*.yml' \
+     -o -name '*.yaml' \
+     -o -name '*.py' \) \
+  -exec sed -i 's/\r$//' {} +
+rm -f "${TMP_ZIP}"
+(
+  cd "${TMP_STAGE}"
+  zip -qr "${TMP_ZIP}" .
+)
+
 mv "${TMP_ZIP}" "${ZIP_PATH}"
+rm -rf "${TMP_STAGE}"
 trap - EXIT
 
 echo "Built ${ZIP_PATH}"
