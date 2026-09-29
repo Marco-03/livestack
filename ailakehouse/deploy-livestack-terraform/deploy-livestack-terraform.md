@@ -101,8 +101,7 @@ Expected result:
     | **Resource name prefix** | Keep the default or use a unique 3-30 character value beginning with a letter. |
     | **SSH public key** | Optional. Paste the public key only, never the private key. When supplied, you must also supply SSH source CIDR. |
     | **SSH source CIDR** | Optional. Use the trusted IPv4 address that will connect to SSH, followed by `/32`. Provide it only when an SSH public key is supplied; otherwise leave both SSH fields blank. `0.0.0.0/0` is rejected. |
-    | **PeakGear application source CIDR** | Use the trusted CIDR that will open PeakGear on port `8505`. |
-    | **Administration tools source CIDR** | Required. Use a trusted `/32` CIDR for Gravitino, GoldenGate, and GGSA. `0.0.0.0/0` is rejected. |
+    | **PeakGear application source CIDR** | Required. Use one trusted `/32` CIDR for PeakGear on port `8505` and its Gravitino, GoldenGate, and GGSA administration tools. `0.0.0.0/0` is rejected. |
 
 2. Complete the **Required runtime credentials** fields.
 
@@ -134,7 +133,7 @@ Expected result:
 
 2. Wait while Terraform creates the VCN, Autonomous Database, private Object Storage bucket, and application VM.
 
-3. Continue waiting while the VM downloads the approved PeakGear, Gravitino, and GGSA artifacts; loads ADB; builds the Podman services; and runs its health checks.
+3. Continue waiting while the VM downloads the approved PeakGear, Gravitino, and GGSA artifacts; loads ADB; builds the Podman services; and runs its health checks. The GGSA check requires the application to report that Streaming Analytics is connected to ADB; an open port alone is not considered ready.
 
 4. Treat deployment as complete only when Apply reports **Succeeded**. A running VM alone does not mean PeakGear is ready.
 
@@ -151,14 +150,16 @@ Expected result:
 
 3. Open `application_url`. Confirm that PeakGear loads and can read its seeded database data.
 
-4. When administration tools were exposed to your trusted CIDR, verify the `gravitino_url`, `goldengate_studio_url`, and `ggsa_url` outputs.
+4. Verify the `gravitino_url`, `goldengate_studio_url`, and `ggsa_url` outputs from the same trusted CIDR used for PeakGear access.
 
-5. Confirm that the output `first_boot_note` states that Apply waited for the ADB data load and required service checks.
+5. On the PeakGear lakehouse page, confirm that all four declared services report ready.
+
+6. Confirm that the output `first_boot_note` states that Apply waited for the ADB data load and required service checks.
 
 Expected result:
 
 - PeakGear opens on port `8505`.
-- Its health endpoint, Autonomous Database connection, Gravitino, GoldenGate, and GGSA checks passed before Apply completed.
+- Its health endpoint, Autonomous Database connection, Gravitino, GoldenGate, and GGSA-to-ADB connection checks passed before Apply completed.
 
 ## Task 5: Investigate a failed bootstrap
 

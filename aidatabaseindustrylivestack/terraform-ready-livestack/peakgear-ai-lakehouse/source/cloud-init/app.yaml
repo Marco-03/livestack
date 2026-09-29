@@ -1,0 +1,50 @@
+#cloud-config
+write_files:
+  - path: /opt/peakgear-livestack/runtime-bootstrap.env
+    permissions: "0600"
+    owner: root:root
+    content: |
+      WALLET_ARCHIVE_URL_B64=${wallet_archive_url_b64}
+      BOOTSTRAP_STATUS_UPLOAD_URL_B64=${bootstrap_status_upload_url_b64}
+      ADB_ADMIN_PASSWORD_B64=${adb_admin_password_b64}
+      ADB_CONNECTION_B64=${adb_connection_b64}
+      ADB_SERVICE_NAME_B64=${adb_service_name_b64}
+      ADB_NAME_B64=${adb_name_b64}
+      ADB_OCID_B64=${adb_ocid_b64}
+      ADB_ORDS_URL_B64=${adb_ords_url_b64}
+      ADB_BASE_URL_B64=${adb_base_url_b64}
+      OCI_PRIVATE_KEY_B64=${oci_private_key_b64}
+      OCI_FINGERPRINT_B64=${oci_fingerprint_b64}
+      OCI_USER_OCID_B64=${oci_user_ocid_b64}
+      TENANCY_OCID_B64=${tenancy_ocid_b64}
+      COMPARTMENT_OCID_B64=${compartment_ocid_b64}
+      REGION_B64=${region_b64}
+      AI_ENDPOINT_REGION_B64=${ai_endpoint_region_b64}
+      OBJECT_NAMESPACE_B64=${object_namespace_b64}
+      BUCKET_NAME_B64=${bucket_name_b64}
+      BUCKET_PAR_B64=${bucket_par_b64}
+      S3_ENDPOINT_B64=${s3_endpoint_b64}
+      AI_DATA_CATALOG_URL_B64=${ai_data_catalog_url_b64}
+      AI_DATA_CATALOG_WAREHOUSE_B64=${ai_data_catalog_warehouse_b64}
+      AI_DATA_CATALOG_S3_ENDPOINT_B64=${ai_data_catalog_s3_endpoint_b64}
+      S3_ACCESS_KEY_B64=${s3_access_key_b64}
+      S3_SECRET_KEY_B64=${s3_secret_key_b64}
+      REGISTRY_USERNAME_B64=${registry_username_b64}
+      REGISTRY_AUTH_TOKEN_B64=${registry_auth_token_b64}
+      GGSA_ARCHIVE_URL_B64=${ggsa_archive_url_b64}
+      BUILD_ARCHIVE_URL_B64=${build_archive_url_b64}
+      BUILD_ARCHIVE_SHA256_B64=${build_archive_sha256_b64}
+      GRAVITINO_ARCHIVE_URL_B64=${gravitino_archive_url_b64}
+      APPLICATION_PORT=${application_port}
+      GRAVITINO_PORT=${gravitino_port}
+      GGSA_HTTPS_PORT=${ggsa_https_port}
+      GOLDENGATE_PORT=${goldengate_port}
+      GOLDENGATE_API_PORT=${goldengate_api}
+  - path: /usr/local/sbin/bootstrap-peakgear-livestack.sh
+    permissions: "0700"
+    owner: root:root
+    content: |
+      ${bootstrap_lakehouse_vm_script}
+
+runcmd:
+  - [bash, -o, pipefail, -c, "/usr/local/sbin/bootstrap-peakgear-livestack.sh 2>&1 | tee /var/log/peakgear-livestack-bootstrap.log"]

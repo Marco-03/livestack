@@ -85,15 +85,11 @@ The two SSH fields must always be completed together:
 
 Supplying a public key while leaving the CIDR blank, or the reverse, stops Plan with a validation error before OCI resources are created.
 
-### Peak Gear application source CIDR
+### Peak Gear application and administration source CIDR
 
-Enter the public IPv4 CIDR that may open Peak Gear on port 8505. A single trusted computer or VPN egress address should use `/32`.
+Enter the public IPv4 CIDR that may open Peak Gear on port 8505 and its Gravitino, GoldenGate, and GGSA administration tools. A single trusted computer or VPN egress address should use `/32`.
 
-Use `0.0.0.0/0` only for a deliberately public, temporary demo. It exposes the application to the internet.
-
-### Administration tools source CIDR
-
-Enter the trusted public IPv4 CIDR that may open the Gravitino, GoldenGate, and GGSA administration ports. Use your public IP followed by `/32`. The stack does not allow `0.0.0.0/0` here.
+The same CIDR controls both the application and administration ports. The stack rejects `0.0.0.0/0`; use a trusted address rather than exposing the deployment publicly.
 
 To find your current public IPv4 address in the required format:
 
@@ -253,6 +249,8 @@ After Apply succeeds, open the stack **Outputs** and use:
 - `ggsa_url`, `goldengate_studio_url`, and `gravitino_url` for the administration tools; and
 - `application_ssh_command` to connect to the VM as `opc`, when SSH was enabled.
 
+On the PeakGear lakehouse page, confirm that all four declared services report ready. Apply now requires the application-level GGSA status to report its ADB connection as connected; a listening GGSA port by itself does not pass deployment validation.
+
 For a failed or unusually long bootstrap, use the commands provided in these outputs:
 
 - `bootstrap_log_command`
@@ -276,8 +274,7 @@ When the demo is no longer needed, run **Destroy** from the Resource Manager sta
 | Resource name prefix | Yes | User-defined identifier |
 | SSH public key | No | Local OpenSSH `.pub` file when SSH access is wanted |
 | SSH source CIDR | Only with SSH | Current trusted public IPv4 address plus `/32` |
-| Peak Gear application source CIDR | Yes | Trusted public IPv4 CIDR |
-| Administration tools source CIDR | Yes | Trusted public IPv4 CIDR; never `0.0.0.0/0` |
+| Peak Gear application source CIDR | Yes | One trusted public IPv4 CIDR for PeakGear and its administration tools; never `0.0.0.0/0` |
 | Show advanced options | Yes | Keep off for the reviewed defaults |
 | VM and database advanced fields | Only when advanced options are on | Approved capacity, license, and region choices |
 | GGSA archive URL | Yes | HTTPS read PAR URL for the approved `V1054826-01.zip` archive |

@@ -1,0 +1,5 @@
+{
+  "peakgear_build_archive_url": "https://github.com/oracle-livelabs/livestack/raw/refs/heads/main/aidatabaseindustrylivestack/terraform-ready-livestack/peakgear-ai-lakehouse/peakgear-build-dev.zip",
+  "peakgear_build_archive_sha256": "7afe244845b0eaab381efe67bcc643cbb54f45d33498df5ecb1203c14fdf5117",
+  "gravitino_archive_url": "https://objectstorage.us-ashburn-1.oraclecloud.com/p/BLGnG9scPeB_z2ruM-xirgDXNfBMuYjTRciZG8jcwgu68oCodk_vFq1vySIDG-F_/n/c4u04/b/ai-lh-build/o/gravitino-iceberg-rest-server-0.7.0-incubating-SNAPSHOT-bin.zip"
+}

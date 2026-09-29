@@ -1,0 +1,371 @@
+title: Peak Gear AI Lakehouse on OCI
+description: Deploy Peak Gear with Autonomous Database, Object Storage, Gravitino, GoldenGate, GGSA, and one Podman application VM.
+stackDescription: One Resource Manager stack creates the network, paid Autonomous Database 26ai, private Object Storage, application VM, Peak Gear data, and all required services.
+informationalText: Run Plan first. Apply can take up to three hours while Peak Gear downloads licensed software, loads ADB, builds containers, and verifies the application. Apply succeeds only after the declared service checks pass. Destroy the stack when the demo is no longer needed.
+schemaVersion: 1.1.0
+version: "20260914.26"
+locale: en
+
+variableGroups:
+  - title: Location and access
+    visible: true
+    variables:
+      - region
+      - compartment_ocid
+      - availability_domain
+      - stack_name
+      - ssh_public_key
+      - ssh_ingress_cidr
+      - app_ingress_cidr
+      - show_advanced_options
+
+  - title: Peak Gear VM sizing
+    visible: ${show_advanced_options}
+    variables:
+      - vm_shape
+      - vm_ocpus
+      - vm_memory_gbs
+      - boot_volume_size_gbs
+
+  - title: Autonomous Database and AI
+    visible: ${show_advanced_options}
+    variables:
+      - adb_license_model
+      - adb_compute_count
+      - adb_storage_tbs
+      - adb_admin_password
+      - ai_endpoint_region
+
+  - title: Required runtime credentials
+    visible: true
+    variables:
+      - ggsa_archive_url
+      - registry_username
+      - registry_auth_token
+      - application_api_private_key_b64
+      - application_api_key_fingerprint
+      - object_storage_access_key
+      - object_storage_secret_key
+
+  - title: OCI context
+    visible: false
+    variables:
+      - tenancy_ocid
+      - current_user_ocid
+
+variables:
+  tenancy_ocid:
+    type: string
+    required: false
+    visible: false
+
+  current_user_ocid:
+    type: string
+    required: false
+    visible: false
+
+  region:
+    type: oci:identity:region:name
+    required: true
+    title: Region
+    description: OCI region where the complete Peak Gear stack will be created.
+
+  compartment_ocid:
+    type: oci:identity:compartment:id
+    required: true
+    title: Compartment
+    description: Select a non-root compartment. Every resource created by this stack stays in this compartment.
+
+  availability_domain:
+    type: oci:identity:availabilitydomain:name
+    required: true
+    title: Availability domain
+    description: Availability domain for the Peak Gear VM.
+    dependsOn:
+      compartmentId: ${compartment_ocid}
+
+  stack_name:
+    type: string
+    required: true
+    title: Resource name prefix
+    description: Short name used to identify every resource created by this stack.
+    default: peakgear-lakehouse
+    pattern: ^[A-Za-z][A-Za-z0-9-]{2,29}$
+
+  ssh_public_key:
+    type: oci:core:ssh:publickey
+    required: false
+    title: Optional SSH public key
+    description: Optional. Supply a public key for opc access, or leave this and SSH source CIDR blank to disable SSH.
+    additionalProps:
+      allowMultiple: false
+
+  ssh_ingress_cidr:
+    type: string
+    required: false
+    title: Optional SSH source CIDR
+    description: Optional. When an SSH key is supplied, enter the trusted public IPv4 CIDR used for SSH. Never use 0.0.0.0/0.
+    default: ""
+    pattern: '^(?:$|(?!0\.0\.0\.0/0$)([0-9]{1,3}\.){3}[0-9]{1,3}/([0-9]|[12][0-9]|3[0-2]))$'
+
+  app_ingress_cidr:
+    type: string
+    required: true
+    title: Peak Gear application source CIDR
+    description: Trusted public IPv4 CIDR allowed to open Peak Gear and its Gravitino, GoldenGate, and GGSA administration tools. Use your public IP followed by /32. 0.0.0.0/0 is not allowed.
+    pattern: '^(?!0\.0\.0\.0/0$)([0-9]{1,3}\.){3}[0-9]{1,3}/([0-9]|[12][0-9]|3[0-2])$'
+
+  show_advanced_options:
+    type: boolean
+    required: true
+    title: Show advanced options
+    description: Keep this off to use the reviewed VM, database, AI, and artifact defaults.
+    default: false
+
+  vm_shape:
+    type: oci:core:instanceshape:name
+    required: true
+    title: Peak Gear VM shape
+    description: Flexible Compute shape for the VM that runs the Peak Gear containers.
+    default: VM.Standard.E5.Flex
+    pattern: ^VM\..*\.Flex$
+    dependsOn:
+      compartmentId: ${compartment_ocid}
+
+  vm_ocpus:
+    type: number
+    required: true
+    title: VM OCPUs
+    description: Peak Gear needs at least 6 OCPUs. The recommended starting value is 8.
+    default: 8
+    minimum: 6
+    maximum: 64
+
+  vm_memory_gbs:
+    type: number
+    required: true
+    title: VM memory in GB
+    description: Peak Gear needs at least 48 GB. The recommended starting value is 64 GB.
+    default: 64
+    minimum: 48
+    maximum: 1024
+
+  boot_volume_size_gbs:
+    type: number
+    required: true
+    title: Boot volume in GB
+    description: Storage for container images, GoldenGate, GGSA, models, and application data.
+    default: 300
+    minimum: 250
+    maximum: 32768
+
+  adb_license_model:
+    type: enum
+    required: true
+    title: Autonomous Database license model
+    description: Choose the license model available in the target tenancy.
+    default: LICENSE_INCLUDED
+    enum:
+      - LICENSE_INCLUDED
+      - BRING_YOUR_OWN_LICENSE
+
+  adb_compute_count:
+    type: number
+    required: true
+    title: Autonomous Database ECPUs
+    description: ECPU count for paid Autonomous Database 26ai.
+    default: 2
+    minimum: 2
+    maximum: 512
+
+  adb_storage_tbs:
+    type: number
+    required: true
+    title: Autonomous Database storage in TB
+    default: 1
+    minimum: 1
+
+  adb_admin_password:
+    type: password
+    sensitive: true
+    required: false
+    title: Autonomous Database ADMIN password
+    description: Optional. Leave blank to generate one. If supplied, use 12-30 characters with uppercase, lowercase, and numeric characters. Do not use quotes, spaces, or the word admin.
+    confirmation: false
+    pattern: '^(?:$|(?=.{12,30}$)(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?!.*[aA][dD][mM][iI][nN])[^\s''"]+)$'
+
+  ai_endpoint_region:
+    type: oci:identity:region:name
+    required: true
+    title: OCI Generative AI region
+    description: Region used by the Peak Gear OCI Generative AI calls. Keep us-chicago-1 unless the selected models are available elsewhere.
+    default: us-chicago-1
+
+  registry_username:
+    type: string
+    sensitive: true
+    required: true
+    title: Oracle Container Registry username
+    description: Sign in at https://container-registry.oracle.com/, accept the terms for the required database and GoldenGate images, and enter the Oracle account email used for that sign-in.
+
+  registry_auth_token:
+    type: password
+    sensitive: true
+    required: true
+    confirmation: false
+    title: Oracle Container Registry Auth Token
+    description: At https://container-registry.oracle.com/, open your profile, choose Auth Token, generate a token, and paste it here. Do not enter your Oracle SSO password.
+
+  application_api_private_key_b64:
+    type: password
+    sensitive: true
+    required: true
+    confirmation: false
+    title: OCI API private key, Base64 encoded
+    description: Peak Gear currently uses API-key authentication to create its OCI Generative AI database profiles. Base64-encode the matching PEM private key and paste the resulting single-line value.
+
+  application_api_key_fingerprint:
+    type: string
+    required: true
+    title: OCI API key fingerprint
+    description: Fingerprint of the API key that matches the supplied private key.
+    pattern: '^([0-9a-fA-F]{2}:){15}[0-9a-fA-F]{2}$'
+
+  object_storage_access_key:
+    type: password
+    sensitive: true
+    required: true
+    confirmation: false
+    title: Object Storage access key
+    description: Gravitino currently uses OCI Object Storage through its S3-compatible API. Enter the access key from an existing Customer Secret Key on the signed-in OCI user.
+
+  object_storage_secret_key:
+    type: password
+    sensitive: true
+    required: true
+    confirmation: false
+    title: Object Storage secret key
+    description: Enter the secret shown once when the matching OCI Customer Secret Key was created.
+
+  ggsa_archive_url:
+    type: password
+    sensitive: true
+    required: true
+    confirmation: false
+    title: GGSA archive URL
+    description: Paste the direct HTTPS Object Storage link for the approved V1054826-01.zip archive, like the GGSA link used in the local deployment variables.
+    pattern: '^https://[^\s''"]+$'
+
+outputs:
+  application_url:
+    type: link
+    title: Peak Gear AI Lakehouse
+    displayText: Open Peak Gear
+    visible: true
+
+  application_health_url:
+    type: link
+    title: Application health
+    displayText: Open the Peak Gear health endpoint
+    visible: true
+
+  application_ssh_command:
+    type: string
+    title: SSH command
+    visible: true
+
+  first_boot_status_command:
+    type: string
+    title: Bootstrap status command
+    visible: true
+
+  bootstrap_log_command:
+    type: string
+    title: Resource Manager bootstrap log
+    visible: true
+
+  installer_log_command:
+    type: string
+    title: Peak Gear installer log
+    visible: true
+
+  application_diagnostics_command:
+    type: string
+    title: Peak Gear application diagnostics
+    visible: true
+
+  database_bootstrap_diagnostics_command:
+    type: string
+    title: ADB bootstrap diagnostics command
+    visible: true
+
+  autonomous_database_name:
+    type: string
+    title: Autonomous Database
+    visible: true
+
+  autonomous_database_service:
+    type: string
+    title: Database service
+    visible: true
+
+  peakgear_database_user:
+    type: string
+    title: Peak Gear database user
+    visible: true
+
+  ggsa_url:
+    type: string
+    title: GoldenGate Stream Analytics URL
+    visible: true
+
+  goldengate_studio_url:
+    type: string
+    title: GoldenGate Studio URL
+    visible: true
+
+  gravitino_url:
+    type: string
+    title: Gravitino REST URL
+    visible: true
+
+  tool_access_note:
+    type: string
+    title: Optional tool access
+    visible: true
+
+  first_boot_note:
+    type: string
+    title: Deployment result
+    visible: true
+
+outputGroups:
+  - title: Peak Gear access
+    outputs:
+      - application_url
+      - application_health_url
+      - application_ssh_command
+
+  - title: Deployment verification
+    outputs:
+      - first_boot_note
+      - first_boot_status_command
+      - bootstrap_log_command
+      - installer_log_command
+      - application_diagnostics_command
+      - database_bootstrap_diagnostics_command
+
+  - title: Database details
+    outputs:
+      - autonomous_database_name
+      - autonomous_database_service
+      - peakgear_database_user
+
+  - title: Optional tools
+    outputs:
+      - tool_access_note
+      - ggsa_url
+      - goldengate_studio_url
+      - gravitino_url
+
+primaryOutputButton: application_url
