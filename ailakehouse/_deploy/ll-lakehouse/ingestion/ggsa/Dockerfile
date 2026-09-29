@@ -1,11 +1,10 @@
+FROM docker.io/apache/kafka@sha256:d50ab7b5df612b3c303f9d8afe8fee59626a5de798addfd626fe1924e3205965 AS kafka-runtime
+FROM docker.io/apache/spark@sha256:989054f2e005c50d4a2f78bd054b0a32de8ee7619a5658e5f4280c61241c9f6d AS spark-runtime
 FROM oraclelinux:8
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 ARG OSA_ARCHIVE=V1054826-01.zip
-ARG KAFKA_VERSION=4.1.2
-ARG KAFKA_SCALA_VERSION=2.13
-ARG SPARK_VERSION=4.0.1
 ARG MYSQL80_REPO_RPM=https://repo.mysql.com/mysql80-community-release-el8.rpm
 
 ENV LANG=C.UTF-8 \
@@ -75,14 +74,12 @@ RUN dnf -y install \
  && dnf clean all \
  && rm -rf /var/cache/dnf
 
-RUN mkdir -p /u01 \
- && curl -fsSL "https://downloads.apache.org/kafka/${KAFKA_VERSION}/kafka_${KAFKA_SCALA_VERSION}-${KAFKA_VERSION}.tgz" -o /tmp/kafka.tgz \
- && tar -xzf /tmp/kafka.tgz -C /u01 \
- && mv "/u01/kafka_${KAFKA_SCALA_VERSION}-${KAFKA_VERSION}" /u01/kafka \
- && curl -fsSL "https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop3.tgz" -o /tmp/spark.tgz \
- && tar -xzf /tmp/spark.tgz -C /u01 \
- && mv "/u01/spark-${SPARK_VERSION}-bin-hadoop3" /u01/spark \
- && rm -f /tmp/kafka.tgz /tmp/spark.tgz
+COPY --from=kafka-runtime /opt/kafka /u01/kafka
+COPY --from=spark-runtime /opt/spark /u01/spark
+
+RUN test -x /u01/kafka/bin/kafka-server-start.sh \
+ && test -x /u01/spark/bin/spark-submit \
+ && test -x /u01/spark/sbin/start-master.sh
 
 COPY ${OSA_ARCHIVE} /tmp/osa.zip
 

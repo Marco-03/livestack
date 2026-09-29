@@ -68,6 +68,17 @@ if ! rg -q 'JdbcWalletCompatAgent.java' "${DOCKERFILE}" \
   fail "The GGSA image must compile, enable, and allow retransformation for the JDBC wallet compatibility agent."
 fi
 
+if rg -q 'downloads\.apache\.org/kafka|archive\.apache\.org/dist/spark' "${DOCKERFILE}"; then
+  fail "The GGSA image must not download large Kafka or Spark archives during deployment."
+fi
+
+if ! rg -q '^FROM docker\.io/apache/kafka@sha256:[0-9a-f]{64} AS kafka-runtime$' "${DOCKERFILE}" \
+  || ! rg -q '^FROM docker\.io/apache/spark@sha256:[0-9a-f]{64} AS spark-runtime$' "${DOCKERFILE}" \
+  || ! rg -q '^COPY --from=kafka-runtime /opt/kafka /u01/kafka$' "${DOCKERFILE}" \
+  || ! rg -q '^COPY --from=spark-runtime /opt/spark /u01/spark$' "${DOCKERFILE}"; then
+  fail "The GGSA image must copy Kafka and Spark from immutable official Apache images."
+fi
+
 agent_classes="${TEST_ROOT}/agent-classes"
 fixture_classes="${TEST_ROOT}/fixture-classes"
 agent_manifest="${TEST_ROOT}/agent.mf"
