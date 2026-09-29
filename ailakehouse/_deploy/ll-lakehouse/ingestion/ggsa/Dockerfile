@@ -79,7 +79,8 @@ COPY --from=spark-runtime /opt/spark /u01/spark
 
 RUN test -x /u01/kafka/bin/kafka-server-start.sh \
  && test -x /u01/spark/bin/spark-submit \
- && test -x /u01/spark/sbin/start-master.sh
+ && test -x /u01/spark/sbin/start-master.sh \
+ && install -d -m 0755 /u01/spark/conf
 
 COPY ${OSA_ARCHIVE} /tmp/osa.zip
 

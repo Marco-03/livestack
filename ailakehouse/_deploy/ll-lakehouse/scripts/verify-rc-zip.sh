@@ -286,6 +286,8 @@ require_text "ingestion/ggsa/Dockerfile" "FROM docker.io/apache/kafka@sha256:"
 require_text "ingestion/ggsa/Dockerfile" "FROM docker.io/apache/spark@sha256:"
 require_text "ingestion/ggsa/Dockerfile" "COPY --from=kafka-runtime /opt/kafka /u01/kafka"
 require_text "ingestion/ggsa/Dockerfile" "COPY --from=spark-runtime /opt/spark /u01/spark"
+require_text "ingestion/ggsa/Dockerfile" "install -d -m 0755 /u01/spark/conf"
+require_text "ingestion/ggsa/container/entrypoint.sh" '"${SPARK_HOME}/conf"'
 reject_text "ingestion/ggsa/Dockerfile" "downloads.apache.org/kafka"
 reject_text "ingestion/ggsa/Dockerfile" "archive.apache.org/dist/spark"
 require_text "ingestion/demodata/bronze/product_master_raw.csv" "Databricks,BRZ-PROD-20260520-01"

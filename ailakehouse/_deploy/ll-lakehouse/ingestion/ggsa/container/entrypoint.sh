@@ -575,7 +575,7 @@ kafka_is_healthy() {
 render_spark_config() {
   local spark_master_opts
 
-  mkdir -p /var/lib/spark/work /var/lib/spark-events "${SPARK_HOME}/logs"
+  mkdir -p /var/lib/spark/work /var/lib/spark-events "${SPARK_HOME}/logs" "${SPARK_HOME}/conf"
 
   spark_master_opts="-Dspark.master.rest.enabled=${SPARK_MASTER_REST_ENABLED} -Dspark.master.rest.port=${SPARK_MASTER_REST_PORT}"
   if [[ -n "${SPARK_MASTER_REST_HOST}" ]]; then

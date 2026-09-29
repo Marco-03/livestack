@@ -75,7 +75,9 @@ fi
 if ! rg -q '^FROM docker\.io/apache/kafka@sha256:[0-9a-f]{64} AS kafka-runtime$' "${DOCKERFILE}" \
   || ! rg -q '^FROM docker\.io/apache/spark@sha256:[0-9a-f]{64} AS spark-runtime$' "${DOCKERFILE}" \
   || ! rg -q '^COPY --from=kafka-runtime /opt/kafka /u01/kafka$' "${DOCKERFILE}" \
-  || ! rg -q '^COPY --from=spark-runtime /opt/spark /u01/spark$' "${DOCKERFILE}"; then
+  || ! rg -q '^COPY --from=spark-runtime /opt/spark /u01/spark$' "${DOCKERFILE}" \
+  || ! rg -q 'install -d -m 0755 /u01/spark/conf' "${DOCKERFILE}" \
+  || ! rg -q '"\$\{SPARK_HOME\}/conf"' "${ENTRYPOINT}"; then
   fail "The GGSA image must copy Kafka and Spark from immutable official Apache images."
 fi
 
